@@ -1,6 +1,41 @@
 import React from 'react'
 
-const Footer = () => (
+const Footer = () => {
+  const footerSections = [
+    {
+      title: 'Quick Links',
+      links: [
+        { label: 'Admin Login', href: '/admin/login' },
+        { label: 'Check Status', href: '/' }
+      ]
+    },
+    {
+      title: 'Company',
+      links: [
+        { label: 'About', href: '/' },
+        { label: 'Careers', href: '/' },
+        { label: 'Blog', href: '/' }
+      ]
+    },
+    {
+      title: 'Resources',
+      links: [
+        { label: 'Documentation', href: '/' },
+        { label: 'Help Center', href: '/' },
+        { label: 'FAQs', href: '/' }
+      ]
+    },
+    {
+      title: 'Legal',
+      links: [
+        { label: 'Privacy Policy', href: '/' },
+        { label: 'Terms of Service', href: '/' },
+        { label: 'Cookies', href: '/' }
+      ]
+    }
+  ];
+
+  return (
   <footer className="bg-white text-slate-600 py-16 border-t border-slate-200">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-8 mb-12">
@@ -11,10 +46,10 @@ const Footer = () => (
           </div>
           <p className="text-slate-500 mb-6 text-sm leading-relaxed max-w-xs">Empowering the next generation of cloud professionals with industry-standard training and mentorship.</p>
         </div>
-        {[['Quick Links', ['Admin Login', 'Check Status']], ['Company', ['About', 'Careers', 'Blog']], ['Resources', ['Documentation', 'Help Center', 'FAQs']], ['Legal', ['Privacy Policy', 'Terms of Service', 'Cookies']]].map(([title, links], i) => (
+        {footerSections.map((section, i) => (
           <div key={i}>
-            <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">{title}</h3>
-            <ul className="space-y-3 text-sm">{links.map(l => <li key={l}><a href="#" className="text-slate-500 hover:text-blue-600 transition-colors">{l}</a></li>)}</ul>
+            <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">{section.title}</h3>
+            <ul className="space-y-3 text-sm">{section.links.map(link => <li key={link.label}><a href={link.href} className="text-slate-500 hover:text-blue-600 transition-colors">{link.label}</a></li>)}</ul>
           </div>
         ))}
       </div>
@@ -28,6 +63,6 @@ const Footer = () => (
     </div>
   </footer>
 );
-
+}
 
 export default Footer

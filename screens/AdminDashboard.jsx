@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Users, Search, Edit, Trash2, Eye, Download,
     Plus, X, Check, AlertCircle, LogOut, Menu, FileText,
@@ -11,6 +12,7 @@ import useStore from "../store";
 
 const AdminDashboard = () => {
     const { hostServer } = useStore();
+    const navigate = useNavigate();
     const [students, setStudents] = useState([]);
     const [filteredStudents, setFilteredStudents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -40,6 +42,18 @@ const AdminDashboard = () => {
         college: '',
         general: ''
     });
+
+
+    useEffect(()=>{
+       const exist = localStorage.getItem("adminToken")
+       if(!exist){
+        navigate('/admin/login');
+       }
+    },[navigate])
+
+
+
+
     const [showEditError, setShowEditError] = useState(false);
 
     // Country codes list
@@ -451,7 +465,16 @@ const AdminDashboard = () => {
                 status: editFormData.status
             };
 
-            await axios.put(`${hostServer}/api/edit/student/${selectedStudent._id}`, dataToSend);
+            const token = localStorage.getItem('adminToken');
+            await axios.put(
+                `${hostServer}/api/edit/student/${selectedStudent._id}`,
+                dataToSend,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
             showNotification('Student updated successfully', 'success');
             fetchStudents();
             setShowModal(false);
@@ -473,10 +496,14 @@ const AdminDashboard = () => {
         }
     }, [validateEditForm, editFormData, selectedStudent, hostServer, showNotification, fetchStudents]);
 
-
     const confirmDelete = useCallback(async () => {
         try {
-            await axios.delete(`${hostServer}/api/student/${selectedStudent._id}`);
+            const token = localStorage.getItem('adminToken');
+            await axios.delete(`${hostServer}/api/student/${selectedStudent._id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
             showNotification('Student deleted successfully', 'success');
             fetchStudents();
             setShowModal(false);
@@ -589,8 +616,9 @@ const AdminDashboard = () => {
     }, [filteredStudents]);
 
     const handleLogout = useCallback(() => {
-        window.location.href = '/';
-    }, []);
+        localStorage.removeItem('adminToken');
+        navigate('/admin/login' , {replace:true});
+    }, [navigate]);
 
     return (
         <div className="min-h-screen bg-white">
@@ -601,7 +629,8 @@ const AdminDashboard = () => {
                         {/* Logo */}
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                                <Users className="text-white" size={20} />
+                                {/* <Users className="text-white" size={20} /> */}
+                                  <img src="/logo.png" alt="Cloud Krishna" className="w-10 h-10" onError={(e) => e.target.src = 'https://cdn-icons-png.flaticon.com/512/6104/6104523.png'} />
                             </div>
                             <div>
                                 <h1 className="text-lg font-semibold text-gray-800">Cloud Krishna</h1>
