@@ -4,6 +4,7 @@ import Index from '../screens/Index'
 import Success from '../screens/SuccessCard'
 import AdminDashboard from '../screens/AdminDashboard'
 import AdminLogin from '../screens/AdminLogin'
+import SuperAdminDashboard from '../screens/SuperAdminDashboard'
 
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
     <Route path='/admin/dashboard' element={<AdminDashboard/>} />
     <Route path='/admin/login' element={<AdminLogin/>} />
     <Route path='/status' element={<Success/>} />
+    <Route path='/super/admin/dashboard' element={<SuperAdminDashboard/>} />
    </Routes>
   )
 }

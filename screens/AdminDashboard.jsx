@@ -42,19 +42,32 @@ const AdminDashboard = () => {
         college: '',
         general: ''
     });
+    const [collegeSearch, setCollegeSearch] = useState('');
+    const [collegeDropdownOpen, setCollegeDropdownOpen] = useState(false);
+    const [courseSearch, setCourseSearch] = useState('');
+    const [courseDropdownOpen, setCourseDropdownOpen] = useState(false);
+    const [yearSearch, setYearSearch] = useState('');
+    const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+    const [interestSearch, setInterestSearch] = useState('');
+    const [interestDropdownOpen, setInterestDropdownOpen] = useState(false);
+    const [statusSearch, setStatusSearch] = useState('');
+    const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+    const [countryCodeSearch, setCountryCodeSearch] = useState('');
+    const [countryCodeDropdownOpen, setCountryCodeDropdownOpen] = useState(false);
 
+    // College options for dropdown
+    const collegeOptions = [
+        'IIT Delhi', 'IIT Bombay', 'IIT Madras', 'IIT Kanpur', 'IIT Kharagpur',
+        'IIT Roorkee', 'IIT Guwahati', 'NIT Trichy', 'NIT Warangal', 'NIT Surathkal',
+        'BITS Pilani', 'Delhi University', 'Mumbai University', 'Anna University',
+        'VIT Vellore', 'SRM University', 'Amity University', 'Manipal University',
+        'Jadavpur University', 'Pune University', 'Other'
+    ];
 
-    useEffect(()=>{
-       const exist = localStorage.getItem("adminToken")
-       if(!exist){
-        navigate('/admin/login');
-       }
-    },[navigate])
-
-
-
-
-    const [showEditError, setShowEditError] = useState(false);
+    const courseOptions = ['B.Tech', 'BCA', 'MCA', 'M.Tech', 'BSc Computer Science', 'MSc Computer Science', 'Other'];
+    const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+    const interestOptions = ['AWS', 'Azure', 'DevOps', 'Cloud Computing'];
+    const statusOptions = ['pending', 'approved', 'rejected'];
 
     // Country codes list
     const countryCodes = [
@@ -71,6 +84,62 @@ const AdminDashboard = () => {
         { code: '+27', country: 'South Africa' }
     ];
 
+    // Filter options based on search
+    const filteredColleges = collegeOptions.filter(college =>
+        college.toLowerCase().includes(collegeSearch.toLowerCase())
+    );
+    const filteredCourses = courseOptions.filter(course =>
+        course.toLowerCase().includes(courseSearch.toLowerCase())
+    );
+    const filteredYears = yearOptions.filter(year =>
+        year.toLowerCase().includes(yearSearch.toLowerCase())
+    );
+    const filteredInterests = interestOptions.filter(interest =>
+        interest.toLowerCase().includes(interestSearch.toLowerCase())
+    );
+    const filteredStatuses = statusOptions.filter(status =>
+        status.toLowerCase().includes(statusSearch.toLowerCase())
+    );
+    const filteredCountryCodes = countryCodes.filter(cc =>
+        cc.code.toLowerCase().includes(countryCodeSearch.toLowerCase()) ||
+        cc.country.toLowerCase().includes(countryCodeSearch.toLowerCase())
+    );
+
+
+    useEffect(() => {
+        const token = localStorage.getItem("adminToken");
+        
+        if (!token) {
+            navigate('/admin/login');
+            return;
+        }
+
+        // Check token expiry
+        try {
+            const tokenParts = token.split('.');
+            if (tokenParts.length === 3) {
+                const payload = JSON.parse(atob(tokenParts[1]));
+                const expiryTime = payload.exp * 1000; // Convert to milliseconds
+                const currentTime = Date.now();
+
+                if (currentTime >= expiryTime) {
+                    localStorage.removeItem("adminToken");
+                    navigate('/admin/login');
+                    return;
+                }
+            }
+        } catch (error) {
+            console.error('Error validating token:', error);
+            localStorage.removeItem("adminToken");
+            navigate('/admin/login');
+        }
+    }, [navigate]);
+
+
+
+
+    const [showEditError, setShowEditError] = useState(false);
+
     const showNotification = useCallback((message, type) => {
         setNotification({ show: true, message, type });
         const timer = setTimeout(() => {
@@ -82,7 +151,12 @@ const AdminDashboard = () => {
     const fetchStudents = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${hostServer}/api/students`);
+            const token = localStorage.getItem("adminToken");
+            const response = await axios.get(`${hostServer}/api/students`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
             setStudents(response.data);
             setFilteredStudents(response.data);
         } catch (error) {
@@ -1186,17 +1260,51 @@ const AdminDashboard = () => {
                                                         Mobile Number <span className="text-red-500">*</span>
                                                     </label>
                                                     <div className="flex flex-col sm:flex-row gap-2">
-                                                        <select
-                                                            value={editFormData.countryCode}
-                                                            onChange={(e) => handleEditFormChange('countryCode', e.target.value)}
-                                                            className="w-full sm:w-auto px-3 py-2 bg-blue-50/50 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm"
-                                                        >
-                                                            {countryCodes.map(cc => (
-                                                                <option key={cc.code} value={cc.code}>
-                                                                    {cc.code} {cc.country}
-                                                                </option>
-                                                            ))}
-                                                        </select>
+                                                        <div className="relative w-full sm:w-[220px]">
+                                                            <input
+                                                                type="text"
+                                                                value={countryCodeDropdownOpen ? countryCodeSearch : `${editFormData.countryCode} ${countryCodes.find(cc => cc.code === editFormData.countryCode)?.country || ''}`}
+                                                                onChange={(e) => {
+                                                                    setCountryCodeSearch(e.target.value);
+                                                                    setCountryCodeDropdownOpen(true);
+                                                                }}
+                                                                onFocus={() => {
+                                                                    setCountryCodeSearch('');
+                                                                    setCountryCodeDropdownOpen(true);
+                                                                }}
+                                                                placeholder="Search country..."
+                                                                className="w-full px-3 py-2 bg-blue-50/50 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm"
+                                                            />
+                                                            {countryCodeDropdownOpen && (
+                                                                <>
+                                                                    <div 
+                                                                        className="fixed inset-0 z-10" 
+                                                                        onClick={() => setCountryCodeDropdownOpen(false)}
+                                                                    />
+                                                                    <div className="absolute z-20 w-[300px] mt-1 max-h-60 overflow-auto bg-white border border-blue-200 rounded-lg shadow-lg">
+                                                                        {filteredCountryCodes.length > 0 ? (
+                                                                            filteredCountryCodes.map((cc, idx) => (
+                                                                                <div
+                                                                                    key={idx}
+                                                                                    onClick={() => {
+                                                                                        handleEditFormChange('countryCode', cc.code);
+                                                                                        setCountryCodeDropdownOpen(false);
+                                                                                        setCountryCodeSearch('');
+                                                                                    }}
+                                                                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
+                                                                                >
+                                                                                    <span className="font-semibold">{cc.code}</span> {cc.country}
+                                                                                </div>
+                                                                            ))
+                                                                        ) : (
+                                                                            <div className="px-3 py-2 text-sm text-gray-500">
+                                                                                No country codes found
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                         <input
                                                             type="tel"
                                                             value={editFormData.phone}
@@ -1228,15 +1336,53 @@ const AdminDashboard = () => {
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Institution <span className="text-red-500">*</span>
                                                     </label>
-                                                    <input
-                                                        type="text"
-                                                        value={editFormData.college}
-                                                        onChange={(e) => handleEditFormChange('college', e.target.value)}
-                                                        className={`w-full px-3 py-2 bg-green-50/50 border ${
-                                                            editErrors.college ? 'border-red-300' : 'border-green-200'
-                                                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent`}
-                                                        placeholder="Enter institution name (alphabets and spaces only)"
-                                                    />
+                                                    <div className="relative">
+                                                        <input
+                                                            type="text"
+                                                            value={collegeDropdownOpen ? collegeSearch : editFormData.college}
+                                                            onChange={(e) => {
+                                                                setCollegeSearch(e.target.value);
+                                                                setCollegeDropdownOpen(true);
+                                                            }}
+                                                            onFocus={() => {
+                                                                setCollegeSearch('');
+                                                                setCollegeDropdownOpen(true);
+                                                            }}
+                                                            placeholder="Search or select institution..."
+                                                            className={`w-full px-3 py-2 bg-green-50/50 border ${
+                                                                editErrors.college ? 'border-red-300' : 'border-green-200'
+                                                            } rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent`}
+                                                        />
+                                                        {collegeDropdownOpen && (
+                                                            <>
+                                                                <div 
+                                                                    className="fixed inset-0 z-10" 
+                                                                    onClick={() => setCollegeDropdownOpen(false)}
+                                                                />
+                                                                <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                                    {filteredColleges.length > 0 ? (
+                                                                        filteredColleges.map((college, idx) => (
+                                                                            <div
+                                                                                key={idx}
+                                                                                onClick={() => {
+                                                                                    handleEditFormChange('college', college);
+                                                                                    setCollegeDropdownOpen(false);
+                                                                                    setCollegeSearch('');
+                                                                                }}
+                                                                                className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                                            >
+                                                                                {college}
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <div className="px-3 py-2 text-sm text-gray-500">
+                                                                            No institutions found
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                     {editErrors.college && (
                                                         <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                                                             <AlertCircle size={12} />
@@ -1244,71 +1390,197 @@ const AdminDashboard = () => {
                                                         </p>
                                                     )}
                                                 </div>
-                                                <div>
+                                                <div className="relative">
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Course <span className="text-red-500">*</span>
                                                     </label>
-                                                    <select
-                                                        value={editFormData.course}
-                                                        onChange={(e) => handleEditFormChange('course', e.target.value)}
+                                                    <input
+                                                        type="text"
+                                                        value={courseDropdownOpen ? courseSearch : editFormData.course}
+                                                        onChange={(e) => {
+                                                            setCourseSearch(e.target.value);
+                                                            setCourseDropdownOpen(true);
+                                                        }}
+                                                        onFocus={() => {
+                                                            setCourseSearch('');
+                                                            setCourseDropdownOpen(true);
+                                                        }}
+                                                        placeholder="Search or select course..."
                                                         className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                    >
-                                                        <option value="">Select Course</option>
-                                                        <option value="B.Tech">B.Tech</option>
-                                                        <option value="BCA">BCA</option>
-                                                        <option value="MCA">MCA</option>
-                                                        <option value="M.Tech">M.Tech</option>
-                                                        <option value="BSc Computer Science">BSc Computer Science</option>
-                                                        <option value="MSc Computer Science">MSc Computer Science</option>
-                                                        <option value="Other">Other</option>
-                                                    </select>
+                                                    />
+                                                    {courseDropdownOpen && (
+                                                        <>
+                                                            <div 
+                                                                className="fixed inset-0 z-10" 
+                                                                onClick={() => setCourseDropdownOpen(false)}
+                                                            />
+                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                                {filteredCourses.length > 0 ? (
+                                                                    filteredCourses.map((course, idx) => (
+                                                                        <div
+                                                                            key={idx}
+                                                                            onClick={() => {
+                                                                                handleEditFormChange('course', course);
+                                                                                setCourseDropdownOpen(false);
+                                                                                setCourseSearch('');
+                                                                            }}
+                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                                        >
+                                                                            {course}
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="px-3 py-2 text-sm text-gray-500">
+                                                                        No courses found
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
-                                                <div>
+                                                <div className="relative">
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Current Year <span className="text-red-500">*</span>
                                                     </label>
-                                                    <select
-                                                        value={editFormData.current_year}
-                                                        onChange={(e) => handleEditFormChange('current_year', e.target.value)}
+                                                    <input
+                                                        type="text"
+                                                        value={yearDropdownOpen ? yearSearch : editFormData.current_year}
+                                                        onChange={(e) => {
+                                                            setYearSearch(e.target.value);
+                                                            setYearDropdownOpen(true);
+                                                        }}
+                                                        onFocus={() => {
+                                                            setYearSearch('');
+                                                            setYearDropdownOpen(true);
+                                                        }}
+                                                        placeholder="Search or select year..."
                                                         className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                    >
-                                                        <option value="">Select Year</option>
-                                                        <option value="1st Year">1st Year</option>
-                                                        <option value="2nd Year">2nd Year</option>
-                                                        <option value="3rd Year">3rd Year</option>
-                                                        <option value="4th Year">4th Year</option>
-                                                    </select>
+                                                    />
+                                                    {yearDropdownOpen && (
+                                                        <>
+                                                            <div 
+                                                                className="fixed inset-0 z-10" 
+                                                                onClick={() => setYearDropdownOpen(false)}
+                                                            />
+                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                                {filteredYears.length > 0 ? (
+                                                                    filteredYears.map((year, idx) => (
+                                                                        <div
+                                                                            key={idx}
+                                                                            onClick={() => {
+                                                                                handleEditFormChange('current_year', year);
+                                                                                setYearDropdownOpen(false);
+                                                                                setYearSearch('');
+                                                                            }}
+                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                                        >
+                                                                            {year}
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="px-3 py-2 text-sm text-gray-500">
+                                                                        No years found
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
-                                                <div>
+                                                <div className="relative">
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Area of Interest <span className="text-red-500">*</span>
                                                     </label>
-                                                    <select
-                                                        value={editFormData.area_of_interest}
-                                                        onChange={(e) => handleEditFormChange('area_of_interest', e.target.value)}
+                                                    <input
+                                                        type="text"
+                                                        value={interestDropdownOpen ? interestSearch : editFormData.area_of_interest}
+                                                        onChange={(e) => {
+                                                            setInterestSearch(e.target.value);
+                                                            setInterestDropdownOpen(true);
+                                                        }}
+                                                        onFocus={() => {
+                                                            setInterestSearch('');
+                                                            setInterestDropdownOpen(true);
+                                                        }}
+                                                        placeholder="Search or select interest..."
                                                         className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                    >
-                                                        <option value="">Select Interest</option>
-                                                        <option value="AWS">AWS</option>
-                                                        <option value="Azure">Azure</option>
-                                                        <option value="DevOps">DevOps</option>
-                                                        <option value="Cloud Computing">Cloud Computing</option>
-                                                    </select>
+                                                    />
+                                                    {interestDropdownOpen && (
+                                                        <>
+                                                            <div 
+                                                                className="fixed inset-0 z-10" 
+                                                                onClick={() => setInterestDropdownOpen(false)}
+                                                            />
+                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                                {filteredInterests.length > 0 ? (
+                                                                    filteredInterests.map((interest, idx) => (
+                                                                        <div
+                                                                            key={idx}
+                                                                            onClick={() => {
+                                                                                handleEditFormChange('area_of_interest', interest);
+                                                                                setInterestDropdownOpen(false);
+                                                                                setInterestSearch('');
+                                                                            }}
+                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                                        >
+                                                                            {interest}
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="px-3 py-2 text-sm text-gray-500">
+                                                                        No interests found
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
-                                                <div>
+                                                <div className="relative">
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Application Status <span className="text-red-500">*</span>
                                                     </label>
-                                                    <select
-                                                        value={editFormData.status}
-                                                        onChange={(e) => handleEditFormChange('status', e.target.value)}
+                                                    <input
+                                                        type="text"
+                                                        value={statusDropdownOpen ? statusSearch : editFormData.status}
+                                                        onChange={(e) => {
+                                                            setStatusSearch(e.target.value);
+                                                            setStatusDropdownOpen(true);
+                                                        }}
+                                                        onFocus={() => {
+                                                            setStatusSearch('');
+                                                            setStatusDropdownOpen(true);
+                                                        }}
+                                                        placeholder="Search or select status..."
                                                         className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                    >
-                                                        <option value="">Select Status</option>
-                                                        <option value="pending">Pending</option>
-                                                        <option value="approved">Approved</option>
-                                                        <option value="rejected">Rejected</option>
-                                                    </select>
+                                                    />
+                                                    {statusDropdownOpen && (
+                                                        <>
+                                                            <div 
+                                                                className="fixed inset-0 z-10" 
+                                                                onClick={() => setStatusDropdownOpen(false)}
+                                                            />
+                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                                {filteredStatuses.length > 0 ? (
+                                                                    filteredStatuses.map((status, idx) => (
+                                                                        <div
+                                                                            key={idx}
+                                                                            onClick={() => {
+                                                                                handleEditFormChange('status', status);
+                                                                                setStatusDropdownOpen(false);
+                                                                                setStatusSearch('');
+                                                                            }}
+                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm capitalize"
+                                                                        >
+                                                                            {status}
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="px-3 py-2 text-sm text-gray-500">
+                                                                        No statuses found
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

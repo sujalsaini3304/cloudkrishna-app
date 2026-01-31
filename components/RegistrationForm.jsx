@@ -5,6 +5,8 @@ import useStore from "../store"
 import Alert from '@mui/material/Alert';
 import { useNavigate } from 'react-router-dom';
 import imagekit from '../utils/imagekit';
+import Lottie from 'lottie-react';
+import birdAnimation from '../src/animations/features/bird.json';
 
 const RegistrationForm = () => {
   const { hostServer } = useStore()
@@ -15,6 +17,16 @@ const RegistrationForm = () => {
   const [emailError, setEmailError] = React.useState('');
   const [phoneError, setPhoneError] = React.useState('');
   const [collegeError, setCollegeError] = React.useState('');
+  const [collegeSearch, setCollegeSearch] = React.useState('');
+  const [collegeDropdownOpen, setCollegeDropdownOpen] = React.useState(false);
+  const [courseSearch, setCourseSearch] = React.useState('');
+  const [courseDropdownOpen, setCourseDropdownOpen] = React.useState(false);
+  const [yearSearch, setYearSearch] = React.useState('');
+  const [yearDropdownOpen, setYearDropdownOpen] = React.useState(false);
+  const [interestSearch, setInterestSearch] = React.useState('');
+  const [interestDropdownOpen, setInterestDropdownOpen] = React.useState(false);
+  const [countryCodeSearch, setCountryCodeSearch] = React.useState('');
+  const [countryCodeDropdownOpen, setCountryCodeDropdownOpen] = React.useState(false);
   const [formData, setFormData] = React.useState({
     fullName: '',
     email: '',
@@ -26,6 +38,51 @@ const RegistrationForm = () => {
     interest: '',
     resume: null
   });
+
+  // College options for dropdown
+  const collegeOptions = [
+    'IIT Delhi', 'IIT Bombay', 'IIT Madras', 'IIT Kanpur', 'IIT Kharagpur',
+    'IIT Roorkee', 'IIT Guwahati', 'NIT Trichy', 'NIT Warangal', 'NIT Surathkal',
+    'BITS Pilani', 'Delhi University', 'Mumbai University', 'Anna University',
+    'VIT Vellore', 'SRM University', 'Amity University', 'Manipal University',
+    'Jadavpur University', 'Pune University' , "Rungta International Skills University" , 'Other'
+  ];
+
+  const courseOptions = ['B.Tech', 'B.E.', 'BCA', 'MCA', 'B.Sc', 'M.Tech', 'Other'];
+  const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated'];
+  const interestOptions = ['Cloud Computing', 'DevOps', 'Data Engineering', 'Security', 'Need Guidance'];
+
+  const countryCodes = [
+    { code: '+1', country: 'United States' },
+    { code: '+44', country: 'United Kingdom' },
+    { code: '+91', country: 'India' },
+    { code: '+92', country: 'Pakistan' },
+    { code: '+880', country: 'Bangladesh' },
+    { code: '+977', country: 'Nepal' },
+    { code: '+975', country: 'Bhutan' },
+    { code: '+94', country: 'Sri Lanka' },
+    { code: '+95', country: 'Myanmar' },
+    { code: '+55', country: 'Brazil' },
+    { code: '+27', country: 'South Africa' }
+  ];
+
+  // Filter options based on search
+  const filteredColleges = collegeOptions.filter(college =>
+    college.toLowerCase().includes(collegeSearch.toLowerCase())
+  );
+  const filteredCourses = courseOptions.filter(course =>
+    course.toLowerCase().includes(courseSearch.toLowerCase())
+  );
+  const filteredYears = yearOptions.filter(year =>
+    year.toLowerCase().includes(yearSearch.toLowerCase())
+  );
+  const filteredInterests = interestOptions.filter(interest =>
+    interest.toLowerCase().includes(interestSearch.toLowerCase())
+  );
+  const filteredCountryCodes = countryCodes.filter(cc =>
+    cc.code.toLowerCase().includes(countryCodeSearch.toLowerCase()) ||
+    cc.country.toLowerCase().includes(countryCodeSearch.toLowerCase())
+  );
 
   React.useEffect(() => {
     const id = localStorage.getItem("application-id");
@@ -40,7 +97,7 @@ const RegistrationForm = () => {
   // Strict validation for username (fullName) - only alphabets and spaces
   const isValidFullName = (name) => {
     const nameRegex = /^[a-zA-Z\s]*$/;
-    return nameRegex.test(name);
+    return nameRegex.test(name) && name.length <= 50;
   };
 
   // Strict validation for email - proper email format
@@ -126,32 +183,6 @@ const RegistrationForm = () => {
     return collegeRegex.test(college);
   };
 
-  // Country codes list
-  const countryCodes = [
-    { code: '+1', country: 'United States' },
-    { code: '+44', country: 'United Kingdom' },
-    { code: '+91', country: 'India' },
-    { code: '+92', country: 'Pakistan' },
-    { code: '+880', country: 'Bangladesh' },
-    { code: '+977', country: 'Nepal' },
-    { code: '+975', country: 'Bhutan' },
-    { code: '+94', country: 'Sri Lanka' },
-    { code: '+95', country: 'Myanmar' },
-    { code: '+55', country: 'Brazil' },
-    { code: '+27', country: 'South Africa' },
-    // { code: '+960', country: 'Maldives' },
-    // { code: '+61', country: 'Australia' },
-    // { code: '+33', country: 'France' },
-    // { code: '+49', country: 'Germany' },
-    // { code: '+39', country: 'Italy' },
-    // { code: '+81', country: 'Japan' },
-    // { code: '+86', country: 'China' },
-    // { code: '+65', country: 'Singapore' },
-    // { code: '+60', country: 'Malaysia' },
-    // { code: '+66', country: 'Thailand' },
-    // { code: '+62', country: 'Indonesia' }
-  ];
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     // Apply strict validation for fullName field
@@ -177,25 +208,17 @@ const RegistrationForm = () => {
         // Real-time phone validation feedback
         if (value.trim() === '') {
           setPhoneError('');
-        } else if (value.length < 10) {
-          setPhoneError('Phone number must be at least 10 digits');
+        } else if (value.length !== 10) {
+          setPhoneError('Phone number must be exactly 10 digits');
         } else {
           setPhoneError('');
         }
       }
       // If invalid, don't update the state (silently reject non-numeric characters)
     } else if (name === 'college') {
-      // Only allow alphabets and spaces for college field
-      if (isValidCollege(value)) {
-        setFormData({ ...formData, [name]: value });
-        // Real-time college validation feedback
-        if (value.trim() === '') {
-          setCollegeError('');
-        } else {
-          setCollegeError('');
-        }
-      }
-      // If invalid, don't update the state (silently reject invalid characters)
+      // Update college field from dropdown selection
+      setFormData({ ...formData, [name]: value });
+      setCollegeError(''); // Clear any college errors
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -204,8 +227,18 @@ const RegistrationForm = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Check file size (max 2MB)
+      const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+      if (file.size > maxSize) {
+        setErrors(['Resume file size must be 2MB or less. Please choose a smaller file.']);
+        e.target.value = ''; // Clear the file input
+        setFileName('');
+        return;
+      }
+      
       setFormData({ ...formData, resume: file });
       setFileName(file.name);
+      setErrors([]); // Clear any previous errors
     }
   };
 
@@ -219,13 +252,14 @@ const RegistrationForm = () => {
     // -------------------------
     if (!formData.fullName.trim()) return setErrorsAndStop('Please enter your full name');
     if (!isValidFullName(formData.fullName)) return setErrorsAndStop('Full name can only contain alphabets and spaces. No numbers or special characters allowed.');
+    if (formData.fullName.trim().length < 3) return setErrorsAndStop('Full name must be at least 3 characters');
+    if (formData.fullName.trim().length > 50) return setErrorsAndStop('Full name must not exceed 50 characters');
     if (!formData.email.trim()) return setErrorsAndStop('Please enter your email address');
     if (!isValidEmail(formData.email.trim())) return setErrorsAndStop('Please enter a valid email address (e.g., example@domain.com)');
     if (!formData.phone.trim()) return setErrorsAndStop('Please enter your phone number');
     if (!isValidPhone(formData.phone)) return setErrorsAndStop('Phone number can only contain numbers');
-    if (formData.phone.length < 10) return setErrorsAndStop('Phone number must be at least 10 digits');
-    if (!formData.college.trim()) return setErrorsAndStop('Please enter your college name');
-    if (!isValidCollege(formData.college)) return setErrorsAndStop('College name can only contain alphabets and spaces. No numbers or special characters allowed.');
+    if (formData.phone.length !== 10) return setErrorsAndStop('Phone number must be exactly 10 digits');
+    if (!formData.college.trim()) return setErrorsAndStop('Please select your college/university');
     if (!formData.course) return setErrorsAndStop('Please select your course');
     if (!formData.currentYear) return setErrorsAndStop('Please select your current year');
     if (!formData.interest) return setErrorsAndStop('Please select your area of interest');
@@ -247,7 +281,7 @@ const RegistrationForm = () => {
 
     try {
       // -------------------------
-      // REGISTER STUDENT (JSON ✔️)
+      // REGISTER STUDENT (JSON)
       // -------------------------
       const payload = {
         fullname: formData.fullName.trim(),
@@ -295,12 +329,12 @@ const RegistrationForm = () => {
           useUniqueFileName: false,  // Use exact filename
           overwriteFile: true,       // Replace if exists
           overwriteTags: true,       // Update tags on overwrite
-          tags: ['resume', 'student', formData.course.toLowerCase()], // Searchable tags
-          customMetadata: {
-            studentId: studentId,
-            studentName: formData.fullName,
-            uploadDate: new Date().toISOString()
-          }
+          tags: ['resume', studentId , formData.fullName , new Date().toISOString() ,  'student', formData.course.toLowerCase()], // Searchable tags
+          // customMetadata: {
+          //   studentId: studentId,
+          //   studentName: formData.fullName,
+          //   uploadDate: new Date().toISOString()
+          // }
         });
 
         // -------------------------
@@ -378,14 +412,17 @@ const RegistrationForm = () => {
                 </div>
               </div>
               <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-slate-200/60">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="flex -space-x-2 sm:-space-x-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-6 sm:w-8 h-6 sm:h-8 rounded-full border-2 border-white bg-slate-200"></div>
-                    ))}
-                  </div>
-                  <div className="text-xs text-slate-500 font-medium">
-                    Join 2,000+ others
+                <div className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8">
+                  <Lottie 
+                    animationData={birdAnimation} 
+                    loop={true}
+                    className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 flex-shrink-0"
+                  />
+                  <div className="flex flex-col items-start">
+                    <h3 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight">
+                      Join Us Now
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 mt-2 font-medium">Be part of our thriving community</p>
                   </div>
                 </div>
               </div>
@@ -437,7 +474,7 @@ const RegistrationForm = () => {
                 {/* Full Name & Email */}
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Full Name</label>
-                  <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} required className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm" placeholder="John Doe" />
+                  <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} required maxLength={50} className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm" placeholder="John Doe" />
                 </div>
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Email Address</label>
@@ -448,52 +485,249 @@ const RegistrationForm = () => {
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Mobile Number</label>
                   <div className="flex gap-1 sm:gap-2">
-                    <select name="countryCode" value={formData.countryCode} onChange={handleChange} className="px-1 sm:px-2 md:px-3 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-600 text-xs sm:text-sm max-w-[100px] sm:max-w-none">
-                      {countryCodes.map(cc => {
-                        // Show short format on mobile, full on desktop
-                        const displayText = typeof window !== 'undefined' && window.innerWidth < 640 ? cc.code : `${cc.code} ${cc.country}`;
-                        return (
-                          <option key={cc.code} value={cc.code} title={`${cc.code} ${cc.country}`}>
-                            {cc.code} {cc.country}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <input type="text" name="phone" value={formData.phone} onChange={handleChange} className="flex-1 px-2 sm:px-3 md:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-xs sm:text-sm" placeholder="9876543210" />
+                    <div className="relative w-[140px] sm:w-[200px]">
+                      <input
+                        type="text"
+                        value={countryCodeDropdownOpen ? countryCodeSearch : `${formData.countryCode} ${countryCodes.find(cc => cc.code === formData.countryCode)?.country || ''}`}
+                        onChange={(e) => {
+                          setCountryCodeSearch(e.target.value);
+                          setCountryCodeDropdownOpen(true);
+                        }}
+                        onFocus={() => {
+                          setCountryCodeSearch('');
+                          setCountryCodeDropdownOpen(true);
+                        }}
+                        placeholder="Search country..."
+                        className="w-full px-1 sm:px-2 md:px-3 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-600 text-xs sm:text-sm"
+                      />
+                      {countryCodeDropdownOpen && (
+                        <>
+                          <div 
+                            className="fixed inset-0 z-10" 
+                            onClick={() => setCountryCodeDropdownOpen(false)}
+                          />
+                          <div className="absolute z-20 w-[250px] sm:w-[300px] mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
+                            {filteredCountryCodes.length > 0 ? (
+                              filteredCountryCodes.map((cc, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => {
+                                    setFormData({ ...formData, countryCode: cc.code });
+                                    setCountryCodeDropdownOpen(false);
+                                    setCountryCodeSearch('');
+                                  }}
+                                  className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer transition-colors text-xs sm:text-sm"
+                                >
+                                  <span className="font-semibold">{cc.code}</span> {cc.country}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-500">
+                                No country codes found
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <input type="text" name="phone" value={formData.phone} onChange={handleChange} maxLength={10} className="flex-1 px-2 sm:px-3 md:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-xs sm:text-sm" placeholder="9876543210" />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">Select country code and enter number</p>
                 </div>
 
-                <div>
+                <div className="relative">
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">College/University</label>
-                  <input type="text" name="college" value={formData.college} onChange={handleChange} className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm" placeholder="University Name" />
+                  <input
+                    type="text"
+                    value={collegeDropdownOpen ? collegeSearch : formData.college}
+                    onChange={(e) => {
+                      setCollegeSearch(e.target.value);
+                      setCollegeDropdownOpen(true);
+                    }}
+                    onFocus={() => {
+                      setCollegeSearch('');
+                      setCollegeDropdownOpen(true);
+                    }}
+                    placeholder="Search or select institution..."
+                    required
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
+                  />
+                  {collegeDropdownOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setCollegeDropdownOpen(false)}
+                      />
+                      <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
+                        {filteredColleges.length > 0 ? (
+                          filteredColleges.map((college, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setFormData({ ...formData, college });
+                                setCollegeDropdownOpen(false);
+                                setCollegeSearch('');
+                              }}
+                              className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
+                            >
+                              {college}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-3 sm:px-4 py-2 sm:py-3 text-sm text-slate-500">
+                            No institutions found
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Course & Year */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                  <div>
+                  <div className="relative">
                     <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Course / Degree</label>
-                    <select name="course" value={formData.course} onChange={handleChange} required className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-600 text-sm">
-                      <option value="">Select Course</option>
-                      {['B.Tech', 'B.E.', 'BCA', 'MCA', 'B.Sc', 'M.Tech', 'Other'].map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <input
+                      type="text"
+                      value={courseDropdownOpen ? courseSearch : formData.course}
+                      onChange={(e) => {
+                        setCourseSearch(e.target.value);
+                        setCourseDropdownOpen(true);
+                      }}
+                      onFocus={() => {
+                        setCourseSearch('');
+                        setCourseDropdownOpen(true);
+                      }}
+                      placeholder="Search or select course..."
+                      required
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
+                    />
+                    {courseDropdownOpen && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={() => setCourseDropdownOpen(false)}
+                        />
+                        <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
+                          {filteredCourses.length > 0 ? (
+                            filteredCourses.map((course, idx) => (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  setFormData({ ...formData, course });
+                                  setCourseDropdownOpen(false);
+                                  setCourseSearch('');
+                                }}
+                                className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
+                              >
+                                {course}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 sm:px-4 py-2 sm:py-3 text-sm text-slate-500">
+                              No courses found
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Current Year</label>
-                    <select name="currentYear" value={formData.currentYear} onChange={handleChange} required className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-600 text-sm">
-                      <option value="">Select Year</option>
-                      {['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated'].map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
+                    <input
+                      type="text"
+                      value={yearDropdownOpen ? yearSearch : formData.currentYear}
+                      onChange={(e) => {
+                        setYearSearch(e.target.value);
+                        setYearDropdownOpen(true);
+                      }}
+                      onFocus={() => {
+                        setYearSearch('');
+                        setYearDropdownOpen(true);
+                      }}
+                      placeholder="Search or select year..."
+                      required
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
+                    />
+                    {yearDropdownOpen && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={() => setYearDropdownOpen(false)}
+                        />
+                        <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
+                          {filteredYears.length > 0 ? (
+                            filteredYears.map((year, idx) => (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  setFormData({ ...formData, currentYear: year });
+                                  setYearDropdownOpen(false);
+                                  setYearSearch('');
+                                }}
+                                className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
+                              >
+                                {year}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 sm:px-4 py-2 sm:py-3 text-sm text-slate-500">
+                              No years found
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Area of Interest */}
-                <div>
+                <div className="relative">
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Area of Interest</label>
-                  <select name="interest" value={formData.interest} onChange={handleChange} required className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-600 text-sm">
-                    <option value="">Select Interest</option>
-                    {['Cloud Computing', 'DevOps', 'Data Engineering', 'Security', 'Need Guidance'].map(i => <option key={i} value={i}>{i}</option>)}
-                  </select>
+                  <input
+                    type="text"
+                    value={interestDropdownOpen ? interestSearch : formData.interest}
+                    onChange={(e) => {
+                      setInterestSearch(e.target.value);
+                      setInterestDropdownOpen(true);
+                    }}
+                    onFocus={() => {
+                      setInterestSearch('');
+                      setInterestDropdownOpen(true);
+                    }}
+                    placeholder="Search or select interest..."
+                    required
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
+                  />
+                  {interestDropdownOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setInterestDropdownOpen(false)}
+                      />
+                      <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
+                        {filteredInterests.length > 0 ? (
+                          filteredInterests.map((interest, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setFormData({ ...formData, interest });
+                                setInterestDropdownOpen(false);
+                                setInterestSearch('');
+                              }}
+                              className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
+                            >
+                              {interest}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-3 sm:px-4 py-2 sm:py-3 text-sm text-slate-500">
+                            No interests found
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Resume Upload */}

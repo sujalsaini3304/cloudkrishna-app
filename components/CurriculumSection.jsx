@@ -1,9 +1,28 @@
 import React from 'react'
 import { Menu, X, Terminal, Video, Users, Rocket, Star, Shield, ChevronRight, ArrowRight, CheckCircle2, Cloud, Database, Code, Lock, ChevronDown, ChevronLeft, Upload, FileText } from 'lucide-react';
+import Lottie from 'lottie-react';
 
 
 const CurriculumSection = () => {
-  const [expanded, setExpanded] = React.useState(0);
+  const [expanded, setExpanded] = React.useState(null);
+  const [animationData, setAnimationData] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    // Fetch Lottie animation JSON from public folder
+    fetch('/animations/features/learning.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to load animation: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => setAnimationData(data))
+      .catch(err => {
+        console.error('Error loading animation:', err);
+        setError(err.message);
+      });
+  }, []);
   const modules = [
     { title: 'Cloud Fundamentals', icon: Cloud, duration: '4 weeks', topics: ['Cloud Computing Intro', 'Service Models', 'Azure & AWS', 'Pricing Models'] },
     { title: 'Infrastructure & Networking', icon: Database, duration: '6 weeks', topics: ['Virtual Machines', 'Storage Accounts', 'VNETs & Subnets', 'Load Balancers'] },
@@ -17,7 +36,21 @@ const CurriculumSection = () => {
         <div className="text-center mb-16">
           <span className="text-blue-700 font-bold tracking-wider text-xs uppercase mb-3 block">Syllabus</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">Structured Learning Path</h2>
-          <p className="text-lg text-slate-600">Industry-aligned curriculum designed by cloud experts</p>
+          <p className="text-lg text-slate-600 mb-8">Industry-aligned curriculum designed by cloud experts</p>
+          
+          {/* Lottie Animation */}
+          {animationData && (
+            <div className="flex justify-center mb-8 sm:mb-10 md:mb-12">
+              <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl px-4 sm:px-6">
+                <Lottie 
+                  animationData={animationData}
+                  loop={true}
+                  speed={0.3}
+                  className="w-full h-auto"
+                />
+              </div>
+            </div>
+          )}
         </div>
         <div className="space-y-4">
           {modules.map((m, i) => (
