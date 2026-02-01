@@ -32,7 +32,7 @@ const AdminDashboard = () => {
         college: '',
         course: '',
         current_year: '',
-        area_of_interest: '',
+        area_of_interest: [],
         status: ''
     });
     const [editErrors, setEditErrors] = useState({
@@ -48,8 +48,6 @@ const AdminDashboard = () => {
     const [courseDropdownOpen, setCourseDropdownOpen] = useState(false);
     const [yearSearch, setYearSearch] = useState('');
     const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
-    const [interestSearch, setInterestSearch] = useState('');
-    const [interestDropdownOpen, setInterestDropdownOpen] = useState(false);
     const [statusSearch, setStatusSearch] = useState('');
     const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
     const [countryCodeSearch, setCountryCodeSearch] = useState('');
@@ -93,9 +91,6 @@ const AdminDashboard = () => {
     );
     const filteredYears = yearOptions.filter(year =>
         year.toLowerCase().includes(yearSearch.toLowerCase())
-    );
-    const filteredInterests = interestOptions.filter(interest =>
-        interest.toLowerCase().includes(interestSearch.toLowerCase())
     );
     const filteredStatuses = statusOptions.filter(status =>
         status.toLowerCase().includes(statusSearch.toLowerCase())
@@ -317,6 +312,26 @@ const AdminDashboard = () => {
         setShowModal(true);
     }, []);
 
+    const toggleInterestInEdit = useCallback((interest) => {
+        setEditFormData(prev => {
+            const currentInterests = Array.isArray(prev.area_of_interest) ? prev.area_of_interest : [];
+            const isSelected = currentInterests.includes(interest);
+            const updatedInterests = isSelected
+                ? currentInterests.filter(item => item !== interest)
+                : [...currentInterests, interest];
+            return { ...prev, area_of_interest: updatedInterests };
+        });
+    }, []);
+
+    const removeInterestFromEdit = useCallback((interest) => {
+        setEditFormData(prev => ({
+            ...prev,
+            area_of_interest: Array.isArray(prev.area_of_interest)
+                ? prev.area_of_interest.filter(item => item !== interest)
+                : []
+        }));
+    }, []);
+
     const handleEditStudent = useCallback((student) => {
         setSelectedStudent(student);
         const { countryCode, phone } = parsePhoneNumber(student.phone_number);
@@ -328,7 +343,7 @@ const AdminDashboard = () => {
             college: student.college || '',
             course: student.course || '',
             current_year: student.current_year || '',
-            area_of_interest: student.area_of_interest || '',
+            area_of_interest: Array.isArray(student.area_of_interest) ? student.area_of_interest : [],
             status: student.status || 'pending'
         });
         setEditErrors({
@@ -504,8 +519,8 @@ const AdminDashboard = () => {
         }
 
         // Validate area of interest
-        if (!editFormData.area_of_interest) {
-            setEditErrors(prev => ({ ...prev, general: 'Please select area of interest' }));
+        if (!Array.isArray(editFormData.area_of_interest) || editFormData.area_of_interest.length === 0) {
+            setEditErrors(prev => ({ ...prev, general: 'Please select at least one area of interest' }));
             setShowEditError(true);
             return false;
         }
@@ -661,7 +676,8 @@ const AdminDashboard = () => {
             'College',
             'Course',
             'Year',
-            'Interest',
+            'Area of Interest',
+            'Status',
             'Date'
         ];
 
@@ -673,13 +689,13 @@ const AdminDashboard = () => {
             student.college || '',
             student.course || '',
             student.current_year || '',
-            student.area_of_interest || '',
+            Array.isArray(student.area_of_interest) ? student.area_of_interest.join(', ') : (student.area_of_interest || ''),
+            student.status || 'pending',
             new Date(student.createdAt).toLocaleDateString()
         ]);
 
-
-        const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
+        const csv = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -897,10 +913,18 @@ const AdminDashboard = () => {
                                                         <p className="text-xs text-gray-600">{student.course} • Year {student.current_year}</p>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="inline-flex px-3 py-1 text-xs font-medium rounded-lg bg-green-50 text-green-700 border border-green-200">
-                                                        {student.area_of_interest}
-                                                    </span>
+                                                <td className="px-6 py-4 max-w-xs">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {Array.isArray(student.area_of_interest) && student.area_of_interest.length > 0 ? (
+                                                            student.area_of_interest.map((interest, idx) => (
+                                                                <span key={idx} className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">
+                                                                    {interest}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">-</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-lg border ${
@@ -975,10 +999,18 @@ const AdminDashboard = () => {
                                                     <p className="text-xs text-gray-500 font-mono break-all">{student._id}</p>
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
-                                                <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-lg bg-green-50 text-green-700 border border-green-200">
-                                                    {student.area_of_interest}
-                                                </span>
+                                            <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-2">
+                                                <div className="flex flex-wrap gap-1 justify-end max-w-xs">
+                                                    {Array.isArray(student.area_of_interest) && student.area_of_interest.length > 0 ? (
+                                                        student.area_of_interest.map((interest, idx) => (
+                                                            <span key={idx} className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">
+                                                                {interest}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">-</span>
+                                                    )}
+                                                </div>
                                                 <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-lg border ${
                                                     student.status === 'approved'
                                                         ? 'bg-green-50 text-green-700 border-green-200'
@@ -1143,8 +1175,18 @@ const AdminDashboard = () => {
                                                     <p className="text-sm text-gray-800 mt-1">{selectedStudent.current_year}</p>
                                                 </div>
                                                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                                                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Area of Interest</label>
-                                                    <p className="text-sm text-gray-800 mt-1">{selectedStudent.area_of_interest}</p>
+                                                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide block mb-2">Area of Interest</label>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {Array.isArray(selectedStudent.area_of_interest) && selectedStudent.area_of_interest.length > 0 ? (
+                                                            selectedStudent.area_of_interest.map((interest, idx) => (
+                                                                <span key={idx} className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">
+                                                                    {interest}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-sm text-gray-400">-</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
                                                     <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Application Status</label>
@@ -1486,53 +1528,53 @@ const AdminDashboard = () => {
                                                         </>
                                                     )}
                                                 </div>
-                                                <div className="relative">
+                                                <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Area of Interest <span className="text-red-500">*</span>
                                                     </label>
-                                                    <input
-                                                        type="text"
-                                                        value={interestDropdownOpen ? interestSearch : editFormData.area_of_interest}
-                                                        onChange={(e) => {
-                                                            setInterestSearch(e.target.value);
-                                                            setInterestDropdownOpen(true);
-                                                        }}
-                                                        onFocus={() => {
-                                                            setInterestSearch('');
-                                                            setInterestDropdownOpen(true);
-                                                        }}
-                                                        placeholder="Search or select interest..."
-                                                        className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                    />
-                                                    {interestDropdownOpen && (
-                                                        <>
-                                                            <div 
-                                                                className="fixed inset-0 z-10" 
-                                                                onClick={() => setInterestDropdownOpen(false)}
-                                                            />
-                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
-                                                                {filteredInterests.length > 0 ? (
-                                                                    filteredInterests.map((interest, idx) => (
-                                                                        <div
-                                                                            key={idx}
-                                                                            onClick={() => {
-                                                                                handleEditFormChange('area_of_interest', interest);
-                                                                                setInterestDropdownOpen(false);
-                                                                                setInterestSearch('');
-                                                                            }}
-                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                    <div className="w-full px-3 py-2.5 bg-green-50/50 border border-green-200 rounded-lg">
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {Array.isArray(editFormData.area_of_interest) && editFormData.area_of_interest.length > 0 ? (
+                                                                editFormData.area_of_interest.map((interest) => (
+                                                                    <span
+                                                                        key={interest}
+                                                                        className="inline-flex items-center gap-1.5 rounded-full bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 text-xs sm:text-sm font-medium"
+                                                                    >
+                                                                        {interest}
+                                                                        <button
+                                                                            type="button"
+                                                                            aria-label={`Remove ${interest}`}
+                                                                            onClick={() => removeInterestFromEdit(interest)}
+                                                                            className="inline-flex h-4 w-4 items-center justify-center rounded-full text-green-700 hover:text-green-900 hover:bg-green-100 transition-colors"
                                                                         >
-                                                                            {interest}
-                                                                        </div>
-                                                                    ))
-                                                                ) : (
-                                                                    <div className="px-3 py-2 text-sm text-gray-500">
-                                                                        No interests found
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </>
-                                                    )}
+                                                                            <X size={12} />
+                                                                        </button>
+                                                                    </span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-gray-400 text-xs">Select one or more interests...</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-3 flex flex-wrap gap-2">
+                                                        {interestOptions.map((interest) => {
+                                                            const isSelected = Array.isArray(editFormData.area_of_interest) && editFormData.area_of_interest.includes(interest);
+                                                            return (
+                                                                <button
+                                                                    key={interest}
+                                                                    type="button"
+                                                                    onClick={() => toggleInterestInEdit(interest)}
+                                                                    className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs sm:text-sm font-medium border transition-all ${
+                                                                        isSelected
+                                                                            ? 'bg-green-50 text-green-700 border-green-200 shadow-sm'
+                                                                            : 'bg-white text-slate-600 border-slate-200 hover:border-green-300 hover:text-green-600'
+                                                                    }`}
+                                                                >
+                                                                    {interest}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                                 <div className="relative">
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -329,7 +329,7 @@ const AdminLogin = () => {
                         {/* Footer */}
                         <div className="mt-6 pt-6 border-t border-gray-200">
                             <p className="text-center text-sm text-gray-500">
-                                © 2024 Cloud Krishna. All rights reserved.
+                                © 2026 Cloud Krishna. All rights reserved.
                             </p>
                         </div>
                     </div>

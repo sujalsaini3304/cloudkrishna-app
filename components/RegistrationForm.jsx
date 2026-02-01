@@ -1,5 +1,5 @@
 import React from 'react'
-import { Menu, X, Terminal, Video, Users, Rocket, Shield, ChevronRight, ArrowRight, CheckCircle2, Upload, FileText } from 'lucide-react';
+import { Menu, X, Terminal, Video, Users, Rocket, ChevronRight, ArrowRight, CheckCircle2, Upload, FileText } from 'lucide-react';
 import axios from 'axios';
 import useStore from "../store"
 import Alert from '@mui/material/Alert';
@@ -23,10 +23,10 @@ const RegistrationForm = () => {
   const [courseDropdownOpen, setCourseDropdownOpen] = React.useState(false);
   const [yearSearch, setYearSearch] = React.useState('');
   const [yearDropdownOpen, setYearDropdownOpen] = React.useState(false);
-  const [interestSearch, setInterestSearch] = React.useState('');
-  const [interestDropdownOpen, setInterestDropdownOpen] = React.useState(false);
+
   const [countryCodeSearch, setCountryCodeSearch] = React.useState('');
   const [countryCodeDropdownOpen, setCountryCodeDropdownOpen] = React.useState(false);
+  const [agreeToTerms, setAgreeToTerms] = React.useState(false);
   const [formData, setFormData] = React.useState({
     fullName: '',
     email: '',
@@ -35,9 +35,11 @@ const RegistrationForm = () => {
     college: '',
     course: '',
     currentYear: '',
-    interest: '',
+    interests: [],
     resume: null
   });
+
+  const resumeInputRef = React.useRef(null);
 
   // College options for dropdown
   const collegeOptions = [
@@ -45,12 +47,12 @@ const RegistrationForm = () => {
     'IIT Roorkee', 'IIT Guwahati', 'NIT Trichy', 'NIT Warangal', 'NIT Surathkal',
     'BITS Pilani', 'Delhi University', 'Mumbai University', 'Anna University',
     'VIT Vellore', 'SRM University', 'Amity University', 'Manipal University',
-    'Jadavpur University', 'Pune University' , "Rungta International Skills University" , 'Other'
+    'Jadavpur University', 'Pune University', "Rungta International Skills University", 'Other'
   ];
 
-  const courseOptions = ['B.Tech', 'B.E.', 'BCA', 'MCA', 'B.Sc', 'M.Tech', 'Other'];
-  const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated'];
-  const interestOptions = ['Cloud Computing', 'DevOps', 'Data Engineering', 'Security', 'Need Guidance'];
+  const courseOptions = ['B.Tech.', 'B.E.', 'BCA', 'MCA', 'B.Sc', 'M.Tech', 'Other'];
+  const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated', 'Other'];
+  const interestOptions = ['Cloud Computing', 'DevOps', 'Data Engineering', 'Data Science', 'Data Analyst', 'A.I. / M.L. Engineering', 'Security', 'Need Guidance'];
 
   const countryCodes = [
     { code: '+1', country: 'United States' },
@@ -76,9 +78,7 @@ const RegistrationForm = () => {
   const filteredYears = yearOptions.filter(year =>
     year.toLowerCase().includes(yearSearch.toLowerCase())
   );
-  const filteredInterests = interestOptions.filter(interest =>
-    interest.toLowerCase().includes(interestSearch.toLowerCase())
-  );
+
   const filteredCountryCodes = countryCodes.filter(cc =>
     cc.code.toLowerCase().includes(countryCodeSearch.toLowerCase()) ||
     cc.country.toLowerCase().includes(countryCodeSearch.toLowerCase())
@@ -224,6 +224,22 @@ const RegistrationForm = () => {
     }
   };
 
+  const toggleInterest = (interest) => {
+    const alreadySelected = formData.interests.includes(interest);
+    const updatedInterests = alreadySelected
+      ? formData.interests.filter((item) => item !== interest)
+      : [...formData.interests, interest];
+
+    setFormData({ ...formData, interests: updatedInterests });
+  };
+
+  const removeInterest = (interest) => {
+    setFormData({
+      ...formData,
+      interests: formData.interests.filter((item) => item !== interest)
+    });
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -235,10 +251,19 @@ const RegistrationForm = () => {
         setFileName('');
         return;
       }
-      
+
       setFormData({ ...formData, resume: file });
       setFileName(file.name);
       setErrors([]); // Clear any previous errors
+    }
+  };
+
+  const handleRemoveResume = () => {
+    setFormData({ ...formData, resume: null });
+    setFileName('');
+    setErrors([]);
+    if (resumeInputRef.current) {
+      resumeInputRef.current.value = '';
     }
   };
 
@@ -262,7 +287,9 @@ const RegistrationForm = () => {
     if (!formData.college.trim()) return setErrorsAndStop('Please select your college/university');
     if (!formData.course) return setErrorsAndStop('Please select your course');
     if (!formData.currentYear) return setErrorsAndStop('Please select your current year');
-    if (!formData.interest) return setErrorsAndStop('Please select your area of interest');
+    if (!formData.interests.length) return setErrorsAndStop('Please select at least one area of interest');
+
+    if (!agreeToTerms) return setErrorsAndStop('Please accept the terms and conditions to proceed');
 
     // -------------------------
     // RESUME SIZE CHECK
@@ -290,7 +317,7 @@ const RegistrationForm = () => {
         college: formData.college.trim(),
         course: formData.course,
         current_year: formData.currentYear,
-        area_of_interest: formData.interest
+        area_of_interest: formData.interests
       };
 
       const registerResponse = await axios.post(
@@ -329,7 +356,7 @@ const RegistrationForm = () => {
           useUniqueFileName: false,  // Use exact filename
           overwriteFile: true,       // Replace if exists
           overwriteTags: true,       // Update tags on overwrite
-          tags: ['resume', studentId , formData.fullName , new Date().toISOString() ,  'student', formData.course.toLowerCase()], // Searchable tags
+          tags: ['resume', studentId, formData.fullName, new Date().toISOString(), 'student', formData.course.toLowerCase()], // Searchable tags
           // customMetadata: {
           //   studentId: studentId,
           //   studentName: formData.fullName,
@@ -359,7 +386,7 @@ const RegistrationForm = () => {
         college: '',
         course: '',
         currentYear: '',
-        interest: '',
+        interests: [],
         resume: null
       });
 
@@ -413,8 +440,8 @@ const RegistrationForm = () => {
               </div>
               <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-slate-200/60">
                 <div className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8">
-                  <Lottie 
-                    animationData={birdAnimation} 
+                  <Lottie
+                    animationData={birdAnimation}
                     loop={true}
                     className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 flex-shrink-0"
                   />
@@ -473,17 +500,17 @@ const RegistrationForm = () => {
 
                 {/* Full Name & Email */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Full Name</label>
-                  <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} required maxLength={50} className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm" placeholder="John Doe" />
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Full Name <span className="text-red-500">*</span></label>
+                  <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} required maxLength={50} className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm" placeholder="Enter your name" />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Email Address</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm" placeholder="john@example.com" />
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Email Address <span className="text-red-500">*</span></label>
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm" placeholder="Enter your email" />
                 </div>
 
                 {/* Mobile & College */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Mobile Number</label>
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Mobile Number <span className="text-red-500">*</span></label>
                   <div className="flex gap-1 sm:gap-2">
                     <div className="relative w-[140px] sm:w-[200px]">
                       <input
@@ -502,8 +529,8 @@ const RegistrationForm = () => {
                       />
                       {countryCodeDropdownOpen && (
                         <>
-                          <div 
-                            className="fixed inset-0 z-10" 
+                          <div
+                            className="fixed inset-0 z-10"
                             onClick={() => setCountryCodeDropdownOpen(false)}
                           />
                           <div className="absolute z-20 w-[250px] sm:w-[300px] mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
@@ -530,13 +557,13 @@ const RegistrationForm = () => {
                         </>
                       )}
                     </div>
-                    <input type="text" name="phone" value={formData.phone} onChange={handleChange} maxLength={10} className="flex-1 px-2 sm:px-3 md:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-xs sm:text-sm" placeholder="9876543210" />
+                    <input type="text" name="phone" value={formData.phone} onChange={handleChange} maxLength={10} className="flex-1 px-2 sm:px-3 md:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-xs sm:text-sm" placeholder="Enter your phone number" />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">Select country code and enter number</p>
                 </div>
 
                 <div className="relative">
-                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">College/University</label>
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">College/University <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={collegeDropdownOpen ? collegeSearch : formData.college}
@@ -554,8 +581,8 @@ const RegistrationForm = () => {
                   />
                   {collegeDropdownOpen && (
                     <>
-                      <div 
-                        className="fixed inset-0 z-10" 
+                      <div
+                        className="fixed inset-0 z-10"
                         onClick={() => setCollegeDropdownOpen(false)}
                       />
                       <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
@@ -586,7 +613,7 @@ const RegistrationForm = () => {
                 {/* Course & Year */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                   <div className="relative">
-                    <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Course / Degree</label>
+                    <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Course / Degree <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={courseDropdownOpen ? courseSearch : formData.course}
@@ -604,8 +631,8 @@ const RegistrationForm = () => {
                     />
                     {courseDropdownOpen && (
                       <>
-                        <div 
-                          className="fixed inset-0 z-10" 
+                        <div
+                          className="fixed inset-0 z-10"
                           onClick={() => setCourseDropdownOpen(false)}
                         />
                         <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
@@ -633,7 +660,7 @@ const RegistrationForm = () => {
                     )}
                   </div>
                   <div className="relative">
-                    <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Current Year</label>
+                    <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Current Year <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={yearDropdownOpen ? yearSearch : formData.currentYear}
@@ -651,8 +678,8 @@ const RegistrationForm = () => {
                     />
                     {yearDropdownOpen && (
                       <>
-                        <div 
-                          className="fixed inset-0 z-10" 
+                        <div
+                          className="fixed inset-0 z-10"
                           onClick={() => setYearDropdownOpen(false)}
                         />
                         <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
@@ -683,58 +710,56 @@ const RegistrationForm = () => {
 
                 {/* Area of Interest */}
                 <div className="relative">
-                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Area of Interest</label>
-                  <input
-                    type="text"
-                    value={interestDropdownOpen ? interestSearch : formData.interest}
-                    onChange={(e) => {
-                      setInterestSearch(e.target.value);
-                      setInterestDropdownOpen(true);
-                    }}
-                    onFocus={() => {
-                      setInterestSearch('');
-                      setInterestDropdownOpen(true);
-                    }}
-                    placeholder="Search or select interest..."
-                    required
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
-                  />
-                  {interestDropdownOpen && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-10" 
-                        onClick={() => setInterestDropdownOpen(false)}
-                      />
-                      <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
-                        {filteredInterests.length > 0 ? (
-                          filteredInterests.map((interest, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => {
-                                setFormData({ ...formData, interest });
-                                setInterestDropdownOpen(false);
-                                setInterestSearch('');
-                              }}
-                              className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Area of Interest <span className="text-red-500">*</span></label>
+                  <div className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-slate-300 rounded-lg transition-all text-sm">
+                    <div className="flex flex-wrap gap-2">
+                      {formData.interests.length > 0 ? (
+                        formData.interests.map((interest) => (
+                          <span
+                            key={interest}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 text-xs sm:text-sm font-medium"
+                          >
+                            {interest}
+                            <button
+                              type="button"
+                              aria-label={`Remove ${interest}`}
+                              onClick={() => removeInterest(interest)}
+                              className=" cursor-pointer inline-flex h-4 w-4 items-center justify-center rounded-full text-green-700 hover:text-green-900 hover:bg-green-100 transition-colors"
                             >
-                              {interest}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="px-3 sm:px-4 py-2 sm:py-3 text-sm text-slate-500">
-                            No interests found
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400 text-xs sm:text-sm">Select one or more interests...</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {interestOptions.map((interest) => {
+                      const isSelected = formData.interests.includes(interest);
+                      return (
+                        <button
+                          key={interest}
+                          type="button"
+                          onClick={() => toggleInterest(interest)}
+                          className={` cursor-pointer inline-flex items-center rounded-full px-3 py-1.5 text-xs sm:text-sm font-medium border transition-all ${isSelected
+                            ? 'bg-green-50 text-green-700 border-green-200 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                            }`}
+                        >
+                          {interest}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Resume Upload */}
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Upload Resume ( Optional ) </label>
                   <div className="relative">
-                    <input type="file" id="resume-upload" onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx" />
+                    <input ref={resumeInputRef} type="file" id="resume-upload" onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx" />
                     <label htmlFor="resume-upload" className="flex flex-col items-center justify-center w-full h-20 sm:h-24 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 hover:border-blue-400 transition-all">
                       <div className="flex flex-col items-center justify-center pt-4 sm:pt-5 pb-4 sm:pb-6">
                         {fileName ? (
@@ -751,11 +776,41 @@ const RegistrationForm = () => {
                         )}
                       </div>
                     </label>
+                    {fileName && (
+                      <button
+                        type="button"
+                        title="Remove resume"
+                        aria-label="Remove resume"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRemoveResume();
+                        }}
+                        className=" cursor-pointer  absolute -top-2 -right-2 inline-flex items-center justify-center h-7 w-7 rounded-full bg-white border border-slate-200 text-slate-500 shadow-sm hover:text-blue-600 hover:border-blue-300 hover:shadow-md transition-all"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 <div className="pt-2 sm:pt-4">
-                  <button disabled={(applicationId != null) || isLoading} onClick={handleSubmit} className={`w-full flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base transition-all duration-300 ${(applicationId == null && !isLoading) ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl active:scale-95" : "bg-gray-400 text-gray-100 cursor-not-allowed"}`}>
+                  <div className="mb-4">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={agreeToTerms}
+                        onChange={(e) => setAgreeToTerms(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-0 focus:outline-none cursor-pointer"
+                      />
+                      <span className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                        I agree to the
+                        <span className="font-semibold text-slate-700"> Terms and Conditions</span>
+                        <span className="text-red-500 ml-1">*</span>
+                      </span>
+                    </label>
+                  </div>
+                  <button disabled={(applicationId != null) || isLoading || !agreeToTerms} onClick={handleSubmit} className={`w-full flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base transition-all duration-300 ${(applicationId == null && !isLoading && agreeToTerms) ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl active:scale-95" : "bg-gray-400 text-gray-100 cursor-not-allowed"}`}>
                     {isLoading ? (
                       <>
                         <svg className="animate-spin h-4 sm:h-5 w-4 sm:w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -773,7 +828,8 @@ const RegistrationForm = () => {
                   </button>
                 </div>
                 <p className="text-center text-slate-400 text-xs sm:text-xs flex items-center justify-center gap-2 mt-3 sm:mt-4">
-                  <Shield size={12} /> Your data is secure and encrypted
+                  <img src="/handshake.png" alt="Secure" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" />
+                  Your data is secure and encrypted
                 </p>
               </div>
             </div>
