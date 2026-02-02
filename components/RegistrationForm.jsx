@@ -41,32 +41,14 @@ const RegistrationForm = () => {
 
   const resumeInputRef = React.useRef(null);
 
-  // College options for dropdown
-  const collegeOptions = [
-    'IIT Delhi', 'IIT Bombay', 'IIT Madras', 'IIT Kanpur', 'IIT Kharagpur',
-    'IIT Roorkee', 'IIT Guwahati', 'NIT Trichy', 'NIT Warangal', 'NIT Surathkal',
-    'BITS Pilani', 'Delhi University', 'Mumbai University', 'Anna University',
-    'VIT Vellore', 'SRM University', 'Amity University', 'Manipal University',
-    'Jadavpur University', 'Pune University', "Rungta International Skills University", 'Other'
-  ];
+  // Dynamic form field options (fetched from MongoDB)
+  const [collegeOptions, setCollegeOptions] = React.useState([]);
+  const [courseOptions, setCourseOptions] = React.useState([]);
+  const [yearOptions, setYearOptions] = React.useState([]);
+  const [interestOptions, setInterestOptions] = React.useState([]);
+  const [countryCodesOptions, setCountryCodesOptions] = React.useState([]);
 
-  const courseOptions = ['B.Tech.', 'B.E.', 'BCA', 'MCA', 'B.Sc', 'M.Tech', 'Other'];
-  const yearOptions = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated', 'Other'];
-  const interestOptions = ['Cloud Computing', 'DevOps', 'Data Engineering', 'Data Science', 'Data Analyst', 'A.I. / M.L. Engineering', 'Security', 'Need Guidance'];
 
-  const countryCodes = [
-    { code: '+1', country: 'United States' },
-    { code: '+44', country: 'United Kingdom' },
-    { code: '+91', country: 'India' },
-    { code: '+92', country: 'Pakistan' },
-    { code: '+880', country: 'Bangladesh' },
-    { code: '+977', country: 'Nepal' },
-    { code: '+975', country: 'Bhutan' },
-    { code: '+94', country: 'Sri Lanka' },
-    { code: '+95', country: 'Myanmar' },
-    { code: '+55', country: 'Brazil' },
-    { code: '+27', country: 'South Africa' }
-  ];
 
   // Filter options based on search
   const filteredColleges = collegeOptions.filter(college =>
@@ -79,7 +61,7 @@ const RegistrationForm = () => {
     year.toLowerCase().includes(yearSearch.toLowerCase())
   );
 
-  const filteredCountryCodes = countryCodes.filter(cc =>
+  const filteredCountryCodes = countryCodesOptions.filter(cc =>
     cc.code.toLowerCase().includes(countryCodeSearch.toLowerCase()) ||
     cc.country.toLowerCase().includes(countryCodeSearch.toLowerCase())
   );
@@ -89,7 +71,99 @@ const RegistrationForm = () => {
     if (id) {
       setApplicationId(id);
     }
-  }, []);
+
+    // Fetch form fields from MongoDB
+    const fetchFormFields = async () => {
+      try {
+        const response = await axios.get(`${hostServer}/api/form-fields/public/all`);
+        if (response.data.success) {
+          const { colleges, courses, years, interests, countryCodes } = response.data.data;
+
+          // Set fetched data or use fallback defaults
+          setCollegeOptions(colleges.length > 0 ? [...colleges, 'Other'] : [
+            'IIT Delhi', 'IIT Bombay', 'IIT Madras', 'IIT Kanpur', 'IIT Kharagpur',
+            'IIT Roorkee', 'IIT Guwahati', 'NIT Trichy', 'NIT Warangal', 'NIT Surathkal',
+            'BITS Pilani', 'Delhi University', 'Mumbai University', 'Anna University',
+            'VIT Vellore', 'SRM University', 'Amity University', 'Manipal University',
+            'Jadavpur University', 'Pune University', 'Rungta International Skills University', 'Other'
+          ]);
+
+          setCourseOptions(courses.length > 0 ? [...courses, 'Other'] : [
+            'B.Tech.', 'B.E.', 'BCA', 'MCA', 'B.Sc', 'M.Tech', 'Other'
+          ]);
+
+          setYearOptions(years.length > 0 ? years : [
+            '1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated', 'Other'
+          ]);
+
+          setInterestOptions(interests.length > 0 ? interests : [
+            'Cloud Computing', 'DevOps', 'Data Engineering', 'Data Science',
+            'Data Analyst', 'A.I. / M.L. Engineering', 'Security', 'Need Guidance'
+          ]);
+
+          // Set country codes - parse format "code - country" or use fallback
+          if (countryCodes && countryCodes.length > 0) {
+            const parsedCodes = countryCodes.map(item => {
+              // Expected format: "+91 - India" or just "+91"
+              const parts = item.split(' - ');
+              if (parts.length === 2) {
+                return { code: parts[0].trim(), country: parts[1].trim() };
+              }
+              // Fallback if format is just the code
+              return { code: item.trim(), country: '' };
+            });
+            setCountryCodesOptions(parsedCodes);
+          } else {
+            // Use fallback defaults
+            setCountryCodesOptions([
+              { code: '+1', country: 'United States' },
+              { code: '+44', country: 'United Kingdom' },
+              { code: '+91', country: 'India' },
+              { code: '+92', country: 'Pakistan' },
+              { code: '+880', country: 'Bangladesh' },
+              { code: '+977', country: 'Nepal' },
+              { code: '+975', country: 'Bhutan' },
+              { code: '+94', country: 'Sri Lanka' },
+              { code: '+95', country: 'Myanmar' },
+              { code: '+55', country: 'Brazil' },
+              { code: '+27', country: 'South Africa' }
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching form fields:', error);
+        // Use fallback defaults on error
+        setCollegeOptions([
+          'IIT Delhi', 'IIT Bombay', 'IIT Madras', 'IIT Kanpur', 'IIT Kharagpur',
+          'IIT Roorkee', 'IIT Guwahati', 'NIT Trichy', 'NIT Warangal', 'NIT Surathkal',
+          'BITS Pilani', 'Delhi University', 'Mumbai University', 'Anna University',
+          'VIT Vellore', 'SRM University', 'Amity University', 'Manipal University',
+          'Jadavpur University', 'Pune University', 'Rungta International Skills University', 'Other'
+        ]);
+        setCourseOptions(['B.Tech.', 'B.E.', 'BCA', 'MCA', 'B.Sc', 'M.Tech', 'Other']);
+        setYearOptions(['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated', 'Other']);
+        setInterestOptions([
+          'Cloud Computing', 'DevOps', 'Data Engineering', 'Data Science',
+          'Data Analyst', 'A.I. / M.L. Engineering', 'Security', 'Need Guidance'
+        ]);
+        setCountryCodesOptions([
+          { code: '+1', country: 'United States' },
+          { code: '+44', country: 'United Kingdom' },
+          { code: '+91', country: 'India' },
+          { code: '+92', country: 'Pakistan' },
+          { code: '+880', country: 'Bangladesh' },
+          { code: '+977', country: 'Nepal' },
+          { code: '+975', country: 'Bhutan' },
+          { code: '+94', country: 'Sri Lanka' },
+          { code: '+95', country: 'Myanmar' },
+          { code: '+55', country: 'Brazil' },
+          { code: '+27', country: 'South Africa' }
+        ]);
+      }
+    };
+
+    fetchFormFields();
+  }, [hostServer]);
 
 
   const [fileName, setFileName] = React.useState('');
@@ -313,7 +387,7 @@ const RegistrationForm = () => {
       const payload = {
         fullname: formData.fullName.trim(),
         email: formData.email.trim(),
-        phone_number: formData.countryCode + formData.phone.trim(),
+        phone_number: formData.countryCode.trim() + formData.phone.trim(),
         college: formData.college.trim(),
         course: formData.course,
         current_year: formData.currentYear,
@@ -515,7 +589,7 @@ const RegistrationForm = () => {
                     <div className="relative w-[140px] sm:w-[200px]">
                       <input
                         type="text"
-                        value={countryCodeDropdownOpen ? countryCodeSearch : `${formData.countryCode} ${countryCodes.find(cc => cc.code === formData.countryCode)?.country || ''}`}
+                        value={countryCodeDropdownOpen ? countryCodeSearch : `${formData.countryCode} ${countryCodesOptions.find(cc => cc.code === formData.countryCode)?.country || ''}`}
                         onChange={(e) => {
                           setCountryCodeSearch(e.target.value);
                           setCountryCodeDropdownOpen(true);

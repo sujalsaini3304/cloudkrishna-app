@@ -4,7 +4,7 @@ import {
     Users, Search, Edit, Trash2, Eye, Download,
     Plus, X, Check, AlertCircle, LogOut, Menu, FileText,
     Mail, Phone, GraduationCap, BookOpen, Calendar, Filter,
-    ChevronDown, MoreVertical, User, Building2
+    ChevronDown, MoreVertical, User, Building2, CheckCircle2
 } from 'lucide-react';
 import Alert from '@mui/material/Alert';
 import axios from 'axios';
@@ -14,11 +14,19 @@ const AdminDashboard = () => {
     const { hostServer } = useStore();
     const navigate = useNavigate();
     const [students, setStudents] = useState([]);
-    const [filteredStudents, setFilteredStudents] = useState([]);
+    // const [filteredStudents, setFilteredStudents] = useState([]); // Removed
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [filterStatusDropdownOpen, setFilterStatusDropdownOpen] = useState(false);
+    const [limitDropdownOpen, setLimitDropdownOpen] = useState(false);
+
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalStudents, setTotalStudents] = useState(0);
+    const [limit, setLimit] = useState(10);
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState('view');
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -103,7 +111,7 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         const token = localStorage.getItem("adminToken");
-        
+
         if (!token) {
             navigate('/admin/login');
             return;
@@ -143,17 +151,31 @@ const AdminDashboard = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    const fetchStudents = useCallback(async () => {
+    const fetchStudents = useCallback(async (page, search, status, limitVal) => {
         try {
             setLoading(true);
             const token = localStorage.getItem("adminToken");
             const response = await axios.get(`${hostServer}/api/students`, {
                 headers: {
                     Authorization: `Bearer ${token}`
+                },
+                params: {
+                    page: page,
+                    limit: limitVal,
+                    search: search,
+                    status: status !== 'all' ? status : undefined
                 }
             });
-            setStudents(response.data);
-            setFilteredStudents(response.data);
+
+            if (response.data.success) {
+                setStudents(response.data.data);
+                setTotalPages(response.data.pagination.totalPages);
+                setTotalStudents(response.data.pagination.total);
+                setCurrentPage(response.data.pagination.page);
+            } else {
+                // Fallback for old API structure if needed
+                setStudents(Array.isArray(response.data) ? response.data : []);
+            }
         } catch (error) {
             showNotification('Failed to fetch students', 'error');
             console.error('Error fetching students:', error);
@@ -162,36 +184,24 @@ const AdminDashboard = () => {
         }
     }, [hostServer, showNotification]);
 
+    // Initial fetch
     useEffect(() => {
-        fetchStudents();
-    }, [fetchStudents]);
+        fetchStudents(currentPage, debouncedSearchTerm, filterStatus, limit);
+    }, [fetchStudents, currentPage, debouncedSearchTerm, filterStatus, limit]);
 
     // Debounce search term to improve performance
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearchTerm(searchTerm);
-        }, 300);
+            // Reset to page 1 on new search
+            if (searchTerm !== debouncedSearchTerm) {
+                setCurrentPage(1);
+            }
+        }, 500);
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    useEffect(() => {
-        let filtered = students;
 
-        if (debouncedSearchTerm) {
-            filtered = filtered.filter(student =>
-                student.fullname?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-                student.email?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-                student.college?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-                student._id?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-            );
-        }
-
-        if (filterStatus !== 'all') {
-            filtered = filtered.filter(student => student.status === filterStatus);
-        }
-
-        setFilteredStudents(filtered);
-    }, [debouncedSearchTerm, filterStatus, students]);
 
     // Validation Functions - Memoized
     const isValidFullName = useCallback((name) => {
@@ -243,7 +253,7 @@ const AdminDashboard = () => {
         // Check each domain part
         for (let i = 0; i < domainParts.length; i++) {
             const part = domainParts[i];
-            
+
             // Each part must be 1-63 characters
             if (part.length === 0 || part.length > 63) {
                 return false;
@@ -276,15 +286,15 @@ const AdminDashboard = () => {
 
     const parsePhoneNumber = useCallback((fullPhone) => {
         if (!fullPhone) return { countryCode: '+91', phone: '' };
-        
+
         // Remove any whitespace
         const cleanPhone = fullPhone.trim();
-        
+
         // Check if phone starts with +
         if (!cleanPhone.startsWith('+')) {
             return { countryCode: '+91', phone: cleanPhone };
         }
-        
+
         // Count from backward: last 10 digits are phone number, rest is country code
         // Format is always: countryCode + 10 digit number
         const phoneLength = cleanPhone.length;
@@ -296,7 +306,7 @@ const AdminDashboard = () => {
                 phone: phone
             };
         }
-        
+
         // If less than 10 digits total, default to +91
         return { countryCode: '+91', phone: cleanPhone.replace(/^\+/, '') };
     }, []);
@@ -375,9 +385,9 @@ const AdminDashboard = () => {
                 setEditFormData({ ...editFormData, [field]: value });
                 setEditErrors(prev => ({ ...prev, fullname: '' }));
             } else {
-                setEditErrors(prev => ({ 
-                    ...prev, 
-                    fullname: 'Name can only contain alphabets and spaces' 
+                setEditErrors(prev => ({
+                    ...prev,
+                    fullname: 'Name can only contain alphabets and spaces'
                 }));
             }
         } else if (field === 'email') {
@@ -385,9 +395,9 @@ const AdminDashboard = () => {
             if (value.trim() === '') {
                 setEditErrors(prev => ({ ...prev, email: '' }));
             } else if (!isValidEmail(value.trim())) {
-                setEditErrors(prev => ({ 
-                    ...prev, 
-                    email: 'Please enter a valid email address (e.g., example@domain.com)' 
+                setEditErrors(prev => ({
+                    ...prev,
+                    email: 'Please enter a valid email address (e.g., example@domain.com)'
                 }));
             } else {
                 setEditErrors(prev => ({ ...prev, email: '' }));
@@ -399,23 +409,23 @@ const AdminDashboard = () => {
                 if (value.trim() === '') {
                     setEditErrors(prev => ({ ...prev, phone: '' }));
                 } else if (value.length < 10) {
-                    setEditErrors(prev => ({ 
-                        ...prev, 
-                        phone: 'Phone number must be exactly 10 digits' 
+                    setEditErrors(prev => ({
+                        ...prev,
+                        phone: 'Phone number must be exactly 10 digits'
                     }));
                 } else {
                     setEditErrors(prev => ({ ...prev, phone: '' }));
                 }
             } else if (value.length > 10) {
                 // Silently reject if more than 10 digits
-                setEditErrors(prev => ({ 
-                    ...prev, 
-                    phone: 'Phone number cannot exceed 10 digits' 
+                setEditErrors(prev => ({
+                    ...prev,
+                    phone: 'Phone number cannot exceed 10 digits'
                 }));
             } else {
-                setEditErrors(prev => ({ 
-                    ...prev, 
-                    phone: 'Phone number can only contain numbers' 
+                setEditErrors(prev => ({
+                    ...prev,
+                    phone: 'Phone number can only contain numbers'
                 }));
             }
         } else if (field === 'college') {
@@ -423,9 +433,9 @@ const AdminDashboard = () => {
                 setEditFormData({ ...editFormData, [field]: value });
                 setEditErrors(prev => ({ ...prev, college: '' }));
             } else {
-                setEditErrors(prev => ({ 
-                    ...prev, 
-                    college: 'College name can only contain alphabets and spaces' 
+                setEditErrors(prev => ({
+                    ...prev,
+                    college: 'College name can only contain alphabets and spaces'
                 }));
             }
         } else {
@@ -435,7 +445,7 @@ const AdminDashboard = () => {
 
     const validateEditForm = useCallback(() => {
         setShowEditError(false); // Reset before validation
-        
+
         // Validate full name
         if (!editFormData.fullname.trim()) {
             setEditErrors(prev => ({ ...prev, general: 'Please enter full name' }));
@@ -443,9 +453,9 @@ const AdminDashboard = () => {
             return false;
         }
         if (!isValidFullName(editFormData.fullname)) {
-            setEditErrors(prev => ({ 
-                ...prev, 
-                general: 'Full name can only contain alphabets and spaces' 
+            setEditErrors(prev => ({
+                ...prev,
+                general: 'Full name can only contain alphabets and spaces'
             }));
             setShowEditError(true);
             return false;
@@ -458,9 +468,9 @@ const AdminDashboard = () => {
             return false;
         }
         if (!isValidEmail(editFormData.email.trim())) {
-            setEditErrors(prev => ({ 
-                ...prev, 
-                general: 'Please enter a valid email address (e.g., example@domain.com)' 
+            setEditErrors(prev => ({
+                ...prev,
+                general: 'Please enter a valid email address (e.g., example@domain.com)'
             }));
             setShowEditError(true);
             return false;
@@ -473,17 +483,17 @@ const AdminDashboard = () => {
             return false;
         }
         if (!isValidPhone(editFormData.phone)) {
-            setEditErrors(prev => ({ 
-                ...prev, 
-                general: 'Phone number can only contain numbers' 
+            setEditErrors(prev => ({
+                ...prev,
+                general: 'Phone number can only contain numbers'
             }));
             setShowEditError(true);
             return false;
         }
         if (editFormData.phone.length !== 10) {
-            setEditErrors(prev => ({ 
-                ...prev, 
-                general: 'Phone number must be exactly 10 digits' 
+            setEditErrors(prev => ({
+                ...prev,
+                general: 'Phone number must be exactly 10 digits'
             }));
             setShowEditError(true);
             return false;
@@ -496,9 +506,9 @@ const AdminDashboard = () => {
             return false;
         }
         if (!isValidCollege(editFormData.college)) {
-            setEditErrors(prev => ({ 
-                ...prev, 
-                general: 'College name can only contain alphabets and spaces' 
+            setEditErrors(prev => ({
+                ...prev,
+                general: 'College name can only contain alphabets and spaces'
             }));
             setShowEditError(true);
             return false;
@@ -681,7 +691,7 @@ const AdminDashboard = () => {
             'Date'
         ];
 
-        const csvData = filteredStudents.map(student => [
+        const csvData = students.map(student => [
             student._id || '',
             student.fullname || '',
             student.email || '',
@@ -703,11 +713,11 @@ const AdminDashboard = () => {
         document.body.appendChild(link);
         link.click();
         link.remove();
-    }, [filteredStudents]);
+    }, [students]);
 
     const handleLogout = useCallback(() => {
         localStorage.removeItem('adminToken');
-        navigate('/admin/login' , {replace:true});
+        navigate('/admin/login', { replace: true });
     }, [navigate]);
 
     return (
@@ -720,7 +730,7 @@ const AdminDashboard = () => {
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                                 {/* <Users className="text-white" size={20} /> */}
-                                  <img src="/logo.png" alt="Cloud Krishna" className="w-10 h-10" onError={(e) => e.target.src = 'https://cdn-icons-png.flaticon.com/512/6104/6104523.png'} />
+                                <img src="/logo.png" alt="Cloud Krishna" className="w-10 h-10" onError={(e) => e.target.src = 'https://cdn-icons-png.flaticon.com/512/6104/6104523.png'} />
                             </div>
                             <div>
                                 <h1 className="text-lg font-semibold text-gray-800">Cloud Krishna</h1>
@@ -732,7 +742,7 @@ const AdminDashboard = () => {
                         <div className="hidden md:flex items-center gap-3">
                             <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
                                 <Users size={16} className="text-blue-600" />
-                                <span className="text-sm font-semibold text-gray-800">{filteredStudents.length}</span>
+                                <span className="text-sm font-semibold text-gray-800">{totalStudents}</span>
                                 <span className="text-sm text-gray-600">Students</span>
                             </div>
                             <button
@@ -759,7 +769,7 @@ const AdminDashboard = () => {
                     <div className="md:hidden bg-white border-t border-blue-100 px-4 py-3 space-y-2">
                         <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 rounded-lg border border-blue-100">
                             <Users size={18} className="text-blue-600" />
-                            <span className="font-semibold text-gray-800">{filteredStudents.length}</span>
+                            <span className="font-semibold text-gray-800">{totalStudents}</span>
                             <span className="text-sm text-gray-600">Students</span>
                         </div>
                         <button
@@ -776,7 +786,7 @@ const AdminDashboard = () => {
             {/* Notification Alert - Material UI Style Below Navbar Center */}
             {notification.show && (
                 <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4 sm:px-6">
-                    <Alert 
+                    <Alert
                         severity={notification.type === 'success' ? 'success' : 'error'}
                         onClose={() => setNotification({ show: false, message: '', type: '' })}
                     >
@@ -793,13 +803,22 @@ const AdminDashboard = () => {
                         <h2 className="text-2xl font-semibold text-gray-800">Student Management</h2>
                         <p className="text-sm text-gray-600 mt-1">Manage and view all student applications</p>
                     </div>
-                    <button
-                        onClick={exportToCSV}
-                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium text-sm shadow-sm"
-                    >
-                        <Download size={18} />
-                        Export to CSV
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                        <button
+                            onClick={() => navigate('/admin/form-data' , {replace: true} )}
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-medium text-sm shadow-sm"
+                        >
+                            <Building2 size={18} />
+                            <span className="whitespace-nowrap">Manage Form Fields</span>
+                        </button>
+                        <button
+                            onClick={exportToCSV}
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium text-sm shadow-sm"
+                        >
+                            <Download size={18} />
+                            <span className="whitespace-nowrap">Export to CSV</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Card */}
@@ -818,18 +837,35 @@ const AdminDashboard = () => {
                         </div>
 
                         {/* Filter Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                                className="w-full sm:w-48 px-4 py-2.5 bg-blue-50/50 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none cursor-pointer text-sm font-medium text-gray-700"
+                        <div className="relative w-full sm:w-48">
+                            <button
+                                onClick={() => setFilterStatusDropdownOpen(!filterStatusDropdownOpen)}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm font-medium text-gray-700 flex items-center justify-between"
                             >
-                                <option value="all">All Students</option>
-                                <option value="pending">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="rejected">Rejected</option>
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={18} />
+                                <span className="capitalize">{filterStatus === 'all' ? 'All Students' : filterStatus}</span>
+                                <ChevronDown size={18} className="text-gray-400" />
+                            </button>
+
+                            {filterStatusDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setFilterStatusDropdownOpen(false)} />
+                                    <div className="absolute z-20 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg overflow-hidden">
+                                        {['all', 'pending', 'approved', 'rejected'].map((status) => (
+                                            <div
+                                                key={status}
+                                                onClick={() => {
+                                                    setFilterStatus(status);
+                                                    setFilterStatusDropdownOpen(false);
+                                                }}
+                                                className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors text-sm text-gray-700 capitalize flex items-center justify-between"
+                                            >
+                                                <span>{status === 'all' ? 'All Students' : status}</span>
+                                                {filterStatus === status && <CheckCircle2 size={16} className="text-blue-600" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -841,7 +877,7 @@ const AdminDashboard = () => {
                             <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin"></div>
                             <p className="mt-4 text-sm text-gray-600">Loading students...</p>
                         </div>
-                    ) : filteredStudents.length === 0 ? (
+                    ) : students.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-24">
                             <div className="w-16 h-16 bg-blue-50 rounded-lg flex items-center justify-center mb-4">
                                 <Users size={32} className="text-blue-400" />
@@ -880,7 +916,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-blue-50">
-                                        {filteredStudents.map((student, index) => (
+                                        {students.map((student, index) => (
                                             <tr key={student._id || index} className="hover:bg-blue-50/50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
@@ -927,10 +963,9 @@ const AdminDashboard = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-lg border ${
-                                                        student.status === 'approved'
-                                                            ? 'bg-green-50 text-green-700 border-green-200'
-                                                            : student.status === 'rejected'
+                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-lg border ${student.status === 'approved'
+                                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                                        : student.status === 'rejected'
                                                             ? 'bg-red-50 text-red-700 border-red-200'
                                                             : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                                                         }`}>
@@ -984,26 +1019,35 @@ const AdminDashboard = () => {
 
                             {/* Tablet & Mobile Cards */}
                             <div className="xl:hidden divide-y divide-blue-50">
-                                {filteredStudents.map((student, index) => (
+                                {students.map((student, index) => (
                                     <div key={student._id || index} className="p-4 hover:bg-blue-50/50 transition-colors">
                                         {/* Card Header */}
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <div className="mb-3">
+                                            <div className="flex items-start gap-3 mb-3">
                                                 <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
                                                     <span className="text-white font-semibold">
                                                         {student.fullname?.charAt(0).toUpperCase()}
                                                     </span>
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <h3 className="font-semibold text-gray-800 truncate">{student.fullname}</h3>
-                                                    <p className="text-xs text-gray-500 font-mono break-all">{student._id}</p>
+                                                    <h3 className="font-semibold text-gray-800 break-words">{student.fullname}</h3>
+                                                    <p className="text-xs text-gray-500 font-mono break-all mt-0.5">{student._id}</p>
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-2">
-                                                <div className="flex flex-wrap gap-1 justify-end max-w-xs">
+
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-lg border flex-shrink-0 ${student.status === 'approved'
+                                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                                    : student.status === 'rejected'
+                                                        ? 'bg-red-50 text-red-700 border-red-200'
+                                                        : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                                    }`}>
+                                                    {student.status || 'pending'}
+                                                </span>
+                                                <div className="flex flex-wrap gap-1">
                                                     {Array.isArray(student.area_of_interest) && student.area_of_interest.length > 0 ? (
                                                         student.area_of_interest.map((interest, idx) => (
-                                                            <span key={idx} className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">
+                                                            <span key={idx} className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex-shrink-0">
                                                                 {interest}
                                                             </span>
                                                         ))
@@ -1011,15 +1055,6 @@ const AdminDashboard = () => {
                                                         <span className="text-xs text-gray-400">-</span>
                                                     )}
                                                 </div>
-                                                <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-lg border ${
-                                                    student.status === 'approved'
-                                                        ? 'bg-green-50 text-green-700 border-green-200'
-                                                        : student.status === 'rejected'
-                                                        ? 'bg-red-50 text-red-700 border-red-200'
-                                                        : 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                                    }`}>
-                                                    {student.status || 'pending'}
-                                                </span>
                                             </div>
                                         </div>
 
@@ -1088,10 +1123,74 @@ const AdminDashboard = () => {
                     )}
                 </div>
 
-                {/* Results Summary */}
-                {!loading && filteredStudents.length > 0 && (
-                    <div className="text-center text-sm text-gray-500">
-                        Showing {filteredStudents.length} of {students.length} student{students.length !== 1 ? 's' : ''}
+                {/* Pagination Controls */}
+                {!loading && students.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 bg-white p-4 rounded-lg border border-blue-100 shadow-sm">
+                        <div className="text-sm text-gray-600">
+                            Showing <span className="font-medium">{(currentPage - 1) * limit + 1}</span> to <span className="font-medium">{Math.min(currentPage * limit, totalStudents)}</span> of <span className="font-medium">{totalStudents}</span> students
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {/* Limit Selector */}
+                            <div className="relative min-w-[140px]">
+                                <button
+                                    onClick={() => setLimitDropdownOpen(!limitDropdownOpen)}
+                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all flex items-center justify-between gap-2"
+                                >
+                                    <span>{limit} per page</span>
+                                    <ChevronDown size={16} className="text-gray-400" />
+                                </button>
+
+                                {limitDropdownOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" onClick={() => setLimitDropdownOpen(false)} />
+                                        <div className="absolute bottom-full mb-1 left-0 z-20 w-full bg-white border border-slate-300 rounded-lg shadow-lg overflow-hidden">
+                                            {[10, 20, 50, 100].map((val) => (
+                                                <div
+                                                    key={val}
+                                                    onClick={() => {
+                                                        setLimit(val);
+                                                        setLimitDropdownOpen(false);
+                                                    }}
+                                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors text-sm text-gray-700 flex items-center justify-between"
+                                                >
+                                                    <span>{val} per page</span>
+                                                    {limit === val && <CheckCircle2 size={14} className="text-blue-600" />}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Page Navigation */}
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => {
+                                        if (currentPage > 1) setCurrentPage(prev => prev - 1);
+                                    }}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white text-gray-700 disabled:opacity-50 disabled:bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer"
+                                >
+                                    Previous
+                                </button>
+
+                                {/* Simple Page Indicator */}
+                                <div className="px-4 py-2 bg-blue-50 text-blue-700 font-medium rounded-lg text-sm border border-blue-100">
+                                    Page {currentPage} of {totalPages}
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
+                                    }}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white text-gray-700 disabled:opacity-50 disabled:bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </main>
@@ -1101,22 +1200,30 @@ const AdminDashboard = () => {
                 <div className="fixed inset-0 bg-gray-900/40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-blue-100">
                         {/* Modal Header */}
-                        <div className="px-6 py-4 border-b border-blue-100 bg-blue-50">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-xl font-semibold text-gray-800">
+                        <div className="px-4 sm:px-6 py-4 border-b border-blue-100 bg-blue-50">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0 space-y-2">
+                                    <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                                         {modalType === 'view' && 'Student Information'}
                                         {modalType === 'edit' && 'Edit Student Record'}
                                         {modalType === 'delete' && 'Delete Student'}
                                     </h2>
                                     {selectedStudent && modalType !== 'delete' && (
-                                        <p className="text-sm text-gray-600 mt-1 font-mono">{selectedStudent._id}</p>
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-medium text-gray-500 uppercase">Name:</span>
+                                                <span className="text-sm font-semibold text-gray-800">{selectedStudent.fullname}</span>
+                                            </div>
+                                            <div className="flex items-start gap-2">
+                                                <span className="text-xs font-medium text-gray-500 uppercase flex-shrink-0">ID:</span>
+                                                <span className="text-xs sm:text-sm text-gray-600 font-mono break-all">{selectedStudent._id}</span>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                                 <button
                                     onClick={() => setShowModal(false)}
-                                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                                >
+                                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0">
                                     <X size={20} className="text-gray-600" />
                                 </button>
                             </div>
@@ -1125,18 +1232,18 @@ const AdminDashboard = () => {
                         {/* Modal Content */}
                         <div className="overflow-y-auto flex-1 bg-white">
                             {modalType === 'view' && selectedStudent && (
-                                <div className="p-6">
+                                <div className="p-4 sm:p-6">
                                     {/* Student Header */}
                                     <div className="mb-6 pb-6 border-b border-blue-100">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center">
-                                                <span className="text-white font-semibold text-2xl">
+                                        <div className="flex items-center gap-3 sm:gap-4">
+                                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <span className="text-white font-semibold text-xl sm:text-2xl">
                                                     {selectedStudent.fullname?.charAt(0).toUpperCase()}
                                                 </span>
                                             </div>
-                                            <div>
-                                                <h3 className="text-2xl font-semibold text-gray-800">{selectedStudent.fullname}</h3>
-                                                <p className="text-sm text-gray-600 mt-1">
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="text-xl sm:text-2xl font-semibold text-gray-800 truncate">{selectedStudent.fullname}</h3>
+                                                <p className="text-xs sm:text-sm text-gray-600 mt-1">
                                                     Registered: {new Date(selectedStudent.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                                                 </p>
                                             </div>
@@ -1174,12 +1281,12 @@ const AdminDashboard = () => {
                                                     <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Current Year</label>
                                                     <p className="text-sm text-gray-800 mt-1">{selectedStudent.current_year}</p>
                                                 </div>
-                                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 md:col-span-2">
                                                     <label className="text-xs font-medium text-gray-600 uppercase tracking-wide block mb-2">Area of Interest</label>
-                                                    <div className="flex flex-wrap gap-2">
+                                                    <div className="flex flex-wrap gap-2 max-w-full overflow-x-auto">
                                                         {Array.isArray(selectedStudent.area_of_interest) && selectedStudent.area_of_interest.length > 0 ? (
                                                             selectedStudent.area_of_interest.map((interest, idx) => (
-                                                                <span key={idx} className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">
+                                                                <span key={idx} className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex-shrink-0">
                                                                     {interest}
                                                                 </span>
                                                             ))
@@ -1188,13 +1295,12 @@ const AdminDashboard = () => {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
+                                                <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 md:col-span-2">
                                                     <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Application Status</label>
                                                     <div className="mt-2">
-                                                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-lg border ${
-                                                            selectedStudent.status === 'approved'
-                                                                ? 'bg-green-50 text-green-700 border-green-200'
-                                                                : selectedStudent.status === 'rejected'
+                                                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-lg border ${selectedStudent.status === 'approved'
+                                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                                            : selectedStudent.status === 'rejected'
                                                                 ? 'bg-red-50 text-red-700 border-red-200'
                                                                 : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                                                             }`}>
@@ -1265,9 +1371,8 @@ const AdminDashboard = () => {
                                                         type="text"
                                                         value={editFormData.fullname}
                                                         onChange={(e) => handleEditFormChange('fullname', e.target.value)}
-                                                        className={`w-full px-3 py-2 bg-blue-50/50 border ${
-                                                            editErrors.fullname ? 'border-red-300' : 'border-blue-200'
-                                                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent`}
+                                                        className={`w-full px-3 py-2 bg-blue-50/50 border ${editErrors.fullname ? 'border-red-300' : 'border-blue-200'
+                                                            } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent`}
                                                         placeholder="Enter full name (alphabets and spaces only)"
                                                     />
                                                     {editErrors.fullname && (
@@ -1285,9 +1390,8 @@ const AdminDashboard = () => {
                                                         type="email"
                                                         value={editFormData.email}
                                                         onChange={(e) => handleEditFormChange('email', e.target.value)}
-                                                        className={`w-full px-3 py-2 bg-blue-50/50 border ${
-                                                            editErrors.email ? 'border-red-300' : 'border-blue-200'
-                                                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent`}
+                                                        className={`w-full px-3 py-2 bg-blue-50/50 border ${editErrors.email ? 'border-red-300' : 'border-blue-200'
+                                                            } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent`}
                                                         placeholder="example@domain.com"
                                                     />
                                                     {editErrors.email && (
@@ -1319,8 +1423,8 @@ const AdminDashboard = () => {
                                                             />
                                                             {countryCodeDropdownOpen && (
                                                                 <>
-                                                                    <div 
-                                                                        className="fixed inset-0 z-10" 
+                                                                    <div
+                                                                        className="fixed inset-0 z-10"
                                                                         onClick={() => setCountryCodeDropdownOpen(false)}
                                                                     />
                                                                     <div className="absolute z-20 w-[300px] mt-1 max-h-60 overflow-auto bg-white border border-blue-200 rounded-lg shadow-lg">
@@ -1352,9 +1456,8 @@ const AdminDashboard = () => {
                                                             value={editFormData.phone}
                                                             onChange={(e) => handleEditFormChange('phone', e.target.value)}
                                                             maxLength={10}
-                                                            className={`w-full sm:flex-1 px-3 py-2 bg-blue-50/50 border ${
-                                                                editErrors.phone ? 'border-red-300' : 'border-blue-200'
-                                                            } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm`}
+                                                            className={`w-full sm:flex-1 px-3 py-2 bg-blue-50/50 border ${editErrors.phone ? 'border-red-300' : 'border-blue-200'
+                                                                } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm`}
                                                             placeholder="9876543210 (10 digits)"
                                                         />
                                                     </div>
@@ -1391,17 +1494,16 @@ const AdminDashboard = () => {
                                                                 setCollegeDropdownOpen(true);
                                                             }}
                                                             placeholder="Search or select institution..."
-                                                            className={`w-full px-3 py-2 bg-green-50/50 border ${
-                                                                editErrors.college ? 'border-red-300' : 'border-green-200'
-                                                            } rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent`}
+                                                            className={`w-full px-3 py-2 bg-white border ${editErrors.college ? 'border-red-300' : 'border-slate-300'
+                                                                } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm`}
                                                         />
                                                         {collegeDropdownOpen && (
                                                             <>
-                                                                <div 
-                                                                    className="fixed inset-0 z-10" 
+                                                                <div
+                                                                    className="fixed inset-0 z-10"
                                                                     onClick={() => setCollegeDropdownOpen(false)}
                                                                 />
-                                                                <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                                <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
                                                                     {filteredColleges.length > 0 ? (
                                                                         filteredColleges.map((college, idx) => (
                                                                             <div
@@ -1411,13 +1513,13 @@ const AdminDashboard = () => {
                                                                                     setCollegeDropdownOpen(false);
                                                                                     setCollegeSearch('');
                                                                                 }}
-                                                                                className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                                                className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
                                                                             >
                                                                                 {college}
                                                                             </div>
                                                                         ))
                                                                     ) : (
-                                                                        <div className="px-3 py-2 text-sm text-gray-500">
+                                                                        <div className="px-3 py-2 text-sm text-slate-500">
                                                                             No institutions found
                                                                         </div>
                                                                     )}
@@ -1448,15 +1550,15 @@ const AdminDashboard = () => {
                                                             setCourseDropdownOpen(true);
                                                         }}
                                                         placeholder="Search or select course..."
-                                                        className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
                                                     />
                                                     {courseDropdownOpen && (
                                                         <>
-                                                            <div 
-                                                                className="fixed inset-0 z-10" 
+                                                            <div
+                                                                className="fixed inset-0 z-10"
                                                                 onClick={() => setCourseDropdownOpen(false)}
                                                             />
-                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
                                                                 {filteredCourses.length > 0 ? (
                                                                     filteredCourses.map((course, idx) => (
                                                                         <div
@@ -1466,13 +1568,13 @@ const AdminDashboard = () => {
                                                                                 setCourseDropdownOpen(false);
                                                                                 setCourseSearch('');
                                                                             }}
-                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
                                                                         >
                                                                             {course}
                                                                         </div>
                                                                     ))
                                                                 ) : (
-                                                                    <div className="px-3 py-2 text-sm text-gray-500">
+                                                                    <div className="px-3 py-2 text-sm text-slate-500">
                                                                         No courses found
                                                                     </div>
                                                                 )}
@@ -1496,15 +1598,15 @@ const AdminDashboard = () => {
                                                             setYearDropdownOpen(true);
                                                         }}
                                                         placeholder="Search or select year..."
-                                                        className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
                                                     />
                                                     {yearDropdownOpen && (
                                                         <>
-                                                            <div 
-                                                                className="fixed inset-0 z-10" 
+                                                            <div
+                                                                className="fixed inset-0 z-10"
                                                                 onClick={() => setYearDropdownOpen(false)}
                                                             />
-                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
                                                                 {filteredYears.length > 0 ? (
                                                                     filteredYears.map((year, idx) => (
                                                                         <div
@@ -1514,13 +1616,13 @@ const AdminDashboard = () => {
                                                                                 setYearDropdownOpen(false);
                                                                                 setYearSearch('');
                                                                             }}
-                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm"
+                                                                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors text-sm"
                                                                         >
                                                                             {year}
                                                                         </div>
                                                                     ))
                                                                 ) : (
-                                                                    <div className="px-3 py-2 text-sm text-gray-500">
+                                                                    <div className="px-3 py-2 text-sm text-slate-500">
                                                                         No years found
                                                                     </div>
                                                                 )}
@@ -1564,11 +1666,10 @@ const AdminDashboard = () => {
                                                                     key={interest}
                                                                     type="button"
                                                                     onClick={() => toggleInterestInEdit(interest)}
-                                                                    className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs sm:text-sm font-medium border transition-all ${
-                                                                        isSelected
-                                                                            ? 'bg-green-50 text-green-700 border-green-200 shadow-sm'
-                                                                            : 'bg-white text-slate-600 border-slate-200 hover:border-green-300 hover:text-green-600'
-                                                                    }`}
+                                                                    className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs sm:text-sm font-medium border transition-all ${isSelected
+                                                                        ? 'bg-green-50 text-green-700 border-green-200 shadow-sm'
+                                                                        : 'bg-white text-slate-600 border-slate-200 hover:border-green-300 hover:text-green-600'
+                                                                        }`}
                                                                 >
                                                                     {interest}
                                                                 </button>
@@ -1592,15 +1693,15 @@ const AdminDashboard = () => {
                                                             setStatusDropdownOpen(true);
                                                         }}
                                                         placeholder="Search or select status..."
-                                                        className="w-full px-3 py-2 bg-green-50/50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
                                                     />
                                                     {statusDropdownOpen && (
                                                         <>
-                                                            <div 
-                                                                className="fixed inset-0 z-10" 
+                                                            <div
+                                                                className="fixed inset-0 z-10"
                                                                 onClick={() => setStatusDropdownOpen(false)}
                                                             />
-                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-green-200 rounded-lg shadow-lg">
+                                                            <div className="absolute z-20 w-full mt-1 max-h-60 overflow-auto bg-white border border-slate-300 rounded-lg shadow-lg">
                                                                 {filteredStatuses.length > 0 ? (
                                                                     filteredStatuses.map((status, idx) => (
                                                                         <div
@@ -1610,13 +1711,13 @@ const AdminDashboard = () => {
                                                                                 setStatusDropdownOpen(false);
                                                                                 setStatusSearch('');
                                                                             }}
-                                                                            className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors text-sm capitalize"
+                                                                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors text-sm capitalize"
                                                                         >
                                                                             {status}
                                                                         </div>
                                                                     ))
                                                                 ) : (
-                                                                    <div className="px-3 py-2 text-sm text-gray-500">
+                                                                    <div className="px-3 py-2 text-sm text-slate-500">
                                                                         No statuses found
                                                                     </div>
                                                                 )}
