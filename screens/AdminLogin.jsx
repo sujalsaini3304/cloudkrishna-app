@@ -79,12 +79,23 @@ const AdminLogin = () => {
             }, 1000);
 
         } catch (error) {
-            if (error.response?.status === 401) {
-                showNotification('Invalid email or password', 'error');
-            } else {
-                showNotification('Login failed. Please try again.', 'error');
-            }
             console.error('Login error:', error);
+            
+            // Try to get error message from server response
+            let errorMessage = 'Login failed. Please try again.';
+            if (error.response?.data) {
+                if (typeof error.response.data === 'string') {
+                    errorMessage = error.response.data;
+                } else if (error.response.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.response.data?.error) {
+                    errorMessage = error.response.data.error;
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            showNotification(errorMessage, 'error');
         } finally {
             setLoading(false);
         }
@@ -214,7 +225,7 @@ const AdminLogin = () => {
                                             ? 'border-red-300 focus:ring-red-400'
                                             : 'border-blue-200 focus:ring-blue-400'
                                             }`}
-                                        placeholder="admin@cloudkrishna.com"
+                                        placeholder="Enter your email"
                                     />
                                 </div>
                                 {errors.email && (
@@ -271,12 +282,12 @@ const AdminLogin = () => {
                                     />
                                     <span className="text-sm text-gray-600">Remember me</span>
                                 </label> */}
-                                <button
+                                {/* <button
                                     type="button"
                                     className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
                                 >
                                     Forgot Password?
-                                </button>
+                                </button> */}
                             </div>
 
                             {/* Submit Button */}
@@ -300,7 +311,7 @@ const AdminLogin = () => {
                             </button>
 
                             {/* Help Text */}
-                            <div className="pt-6 border-t border-gray-200">
+                            {/* <div className="pt-6 border-t border-gray-200">
                                 <p className="text-center text-sm text-gray-600">
                                     Need help accessing your account?{' '}
                                     <button
@@ -310,7 +321,7 @@ const AdminLogin = () => {
                                         Contact Support
                                     </button>
                                 </p>
-                            </div>
+                            </div> */}
                         </form>
 
                         {/* Security Notice */}

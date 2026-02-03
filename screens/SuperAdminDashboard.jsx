@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { replace, useNavigate } from 'react-router-dom';
 import {
     Shield, Search, Edit, Trash2, Eye, Plus, X, Check, AlertCircle, LogOut, Menu,
     MoreVertical, Mail, Lock, Clock, CheckCircle, XCircle, User, Building2,
-    Download, Filter, ChevronDown, Eye as EyeIcon, EyeOff
+    Download, Filter, ChevronDown, Eye as EyeIcon, EyeOff, CheckCircle2
 } from 'lucide-react';
 import Alert from '@mui/material/Alert';
 import axios from 'axios';
@@ -21,6 +21,8 @@ const SuperAdminDashboard = () => {
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterRole, setFilterRole] = useState('all');
+    const [filterStatusDropdownOpen, setFilterStatusDropdownOpen] = useState(false);
+    const [filterRoleDropdownOpen, setFilterRoleDropdownOpen] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState('view'); // 'view', 'create', 'edit', 'delete'
     const [selectedAdmin, setSelectedAdmin] = useState(null);
@@ -63,22 +65,52 @@ const SuperAdminDashboard = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem("superAdminToken");
-            const response = await axios.get(`${hostServer}/api/fetch/admins`, 
-            //     {
-            //     headers: {
-            //         Authorization: `Bearer ${token}`
-            //     }
-            // }
-        );
+            const response = await axios.get(`${hostServer}/api/fetch/admins`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
             setAdmins(response.data.data);
             setFilteredAdmins(response.data.data);
         } catch (error) {
-            showNotification('Failed to fetch admins', 'error');
             console.error('Error fetching admins:', error);
+            
+            // Handle 401 Unauthorized or 403 Forbidden - redirect to login
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                localStorage.removeItem("superAdminToken");
+                navigate('/super/admin/login' , {replace:true} );
+                
+                // Try to get error message from server response
+                let errorMessage = 'Access denied.';
+                if (error.response?.data) {
+                    if (typeof error.response.data === 'string') {
+                        errorMessage = error.response.data;
+                    } else if (error.response.data?.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.response.data?.error) {
+                        errorMessage = error.response.data.error;
+                    }
+                }
+                
+                showNotification(errorMessage, 'error');
+                return;
+            }
+            
+            // Handle other errors
+            let errorMessage = 'Failed to fetch admins';
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response?.data?.error) {
+                errorMessage = error.response.data.error;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            showNotification(errorMessage, 'error');
         } finally {
             setLoading(false);
         }
-    }, [hostServer, showNotification]);
+    }, [hostServer, showNotification, navigate]);
 
     useEffect(() => {
         fetchAdmins();
@@ -246,21 +278,17 @@ const SuperAdminDashboard = () => {
 
             if (modalType === 'create') {
                 payload.password = formData.password;
-                await axios.post(`${hostServer}/api/admin/register`, payload, 
-                //     {
-                //     headers: { Authorization: `Bearer ${token}` }
-                // }
-            );
+                await axios.post(`${hostServer}/api/admin/register`, payload, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
                 showNotification('Admin created successfully', 'success');
             } else if (modalType === 'edit') {
                 if (formData.password) {
                     payload.password = formData.password;
                 }
-                await axios.put(`${hostServer}/api/admin/${selectedAdmin._id}`, payload, 
-                //     {
-                //     headers: { Authorization: `Bearer ${token}` }
-                //    }
-            );
+                await axios.put(`${hostServer}/api/admin/${selectedAdmin._id}`, payload, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
                 showNotification('Admin updated successfully', 'success');
             }
 
@@ -278,11 +306,9 @@ const SuperAdminDashboard = () => {
     const handleConfirmDelete = useCallback(async () => {
         try {
             const token = localStorage.getItem("superAdminToken");
-            await axios.delete(`${hostServer}/api/admin/${selectedAdmin._id}`, 
-            //     {
-            //     headers: { Authorization: `Bearer ${token}` }
-            // }
-        );
+            await axios.delete(`${hostServer}/api/admin/${selectedAdmin._id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             showNotification('Admin deleted successfully', 'success');
             setShowModal(false);
             fetchAdmins();
@@ -294,8 +320,8 @@ const SuperAdminDashboard = () => {
 
     // Logout
     const handleLogout = useCallback(() => {
-        // localStorage.removeItem("superAdminToken");
-        navigate('/admin/login');
+        localStorage.removeItem("superAdminToken");
+        navigate('/super/admin/login' , {replace:true});
     }, [navigate]);
 
     return (
@@ -405,30 +431,69 @@ const SuperAdminDashboard = () => {
                         </div>
 
                         {/* Status Filter */}
-                        <div className="flex items-center gap-2">
-                            <Filter size={20} className="text-gray-600" />
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                        <div className="relative w-full sm:w-48">
+                            <button
+                                type="button"
+                                onClick={() => setFilterStatusDropdownOpen(!filterStatusDropdownOpen)}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm font-medium text-gray-700 flex items-center justify-between"
                             >
-                                <option value="all">All Status</option>
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                                <option value="suspended">Suspended</option>
-                            </select>
+                                <span className="capitalize">{filterStatus === 'all' ? 'All Status' : filterStatus}</span>
+                                <ChevronDown size={18} className="text-gray-400" />
+                            </button>
+
+                            {filterStatusDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setFilterStatusDropdownOpen(false)} />
+                                    <div className="absolute z-20 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg overflow-hidden">
+                                        {['all', 'active', 'inactive', 'suspended'].map((status) => (
+                                            <div
+                                                key={status}
+                                                onClick={() => {
+                                                    setFilterStatus(status);
+                                                    setFilterStatusDropdownOpen(false);
+                                                }}
+                                                className="px-4 py-2.5 hover:bg-purple-50 cursor-pointer transition-colors text-sm text-gray-700 capitalize flex items-center justify-between"
+                                            >
+                                                <span>{status === 'all' ? 'All Status' : status}</span>
+                                                {filterStatus === status && <CheckCircle2 size={16} className="text-purple-600" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Role Filter */}
-                        <div className="flex items-center gap-2">
-                            <select
-                                value={filterRole}
-                                onChange={(e) => setFilterRole(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                        <div className="relative w-full sm:w-48">
+                            <button
+                                type="button"
+                                onClick={() => setFilterRoleDropdownOpen(!filterRoleDropdownOpen)}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm font-medium text-gray-700 flex items-center justify-between"
                             >
-                                <option value="all">All Roles</option>
-                                <option value="admin">Admin</option>
-                            </select>
+                                <span className="capitalize">{filterRole === 'all' ? 'All Roles' : filterRole}</span>
+                                <ChevronDown size={18} className="text-gray-400" />
+                            </button>
+
+                            {filterRoleDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setFilterRoleDropdownOpen(false)} />
+                                    <div className="absolute z-20 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg overflow-hidden">
+                                        {['all', 'admin'].map((role) => (
+                                            <div
+                                                key={role}
+                                                onClick={() => {
+                                                    setFilterRole(role);
+                                                    setFilterRoleDropdownOpen(false);
+                                                }}
+                                                className="px-4 py-2.5 hover:bg-purple-50 cursor-pointer transition-colors text-sm text-gray-700 capitalize flex items-center justify-between"
+                                            >
+                                                <span>{role === 'all' ? 'All Roles' : role}</span>
+                                                {filterRole === role && <CheckCircle2 size={16} className="text-purple-600" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -446,7 +511,7 @@ const SuperAdminDashboard = () => {
                             <p className="text-gray-500 text-sm">Create your first admin to get started</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto no-scrollbar">
                             <table className="w-full">
                                 <thead className="bg-gray-50 border-b border-gray-200">
                                     <tr>
@@ -601,10 +666,10 @@ const SuperAdminDashboard = () => {
                         {/* Modal Header */}
                         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
                             <h2 className="text-2xl font-bold text-purple-600">
-                                {modalType === 'view' && '👁️ View Admin'}
-                                {modalType === 'create' && '➕ Create New Admin'}
-                                {modalType === 'edit' && '✏️ Edit Admin'}
-                                {modalType === 'delete' && '🗑️ Delete Admin'}
+                                {modalType === 'view' && 'View Admin'}
+                                {modalType === 'create' && 'Create New Admin'}
+                                {modalType === 'edit' && 'Edit Admin'}
+                                {modalType === 'delete' && 'Delete Admin'}
                             </h2>
                             <button
                                 onClick={() => setShowModal(false)}
@@ -617,31 +682,56 @@ const SuperAdminDashboard = () => {
                         {/* Modal Content */}
                         <div className="p-6 space-y-4">
                             {modalType === 'view' && selectedAdmin && (
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-sm font-semibold text-gray-700">Full Name</label>
-                                            <p className="text-gray-800 mt-1">{selectedAdmin.fullname}</p>
+                                <div className="p-4 sm:p-6">
+                                    {/* Admin Header */}
+                                    <div className="mb-6 pb-6 border-b border-purple-100">
+                                        <div className="flex items-center gap-3 sm:gap-4">
+                                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <span className="text-white font-semibold text-xl sm:text-2xl">
+                                                    {selectedAdmin.fullname?.charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="text-xl sm:text-2xl font-semibold text-gray-800 truncate">{selectedAdmin.fullname}</h3>
+                                                <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                                                    Registered: {new Date(selectedAdmin.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                </p>
+                                            </div>
                                         </div>
+                                    </div>
+
+                                    {/* Information Grid */}
+                                    <div className="space-y-6">
                                         <div>
-                                            <label className="text-sm font-semibold text-gray-700">Email</label>
-                                            <p className="text-gray-800 mt-1">{selectedAdmin.email}</p>
+                                            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Contact Information</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
+                                                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Email Address</label>
+                                                    <p className="text-sm text-gray-800 mt-1 break-all">{selectedAdmin.email}</p>
+                                                </div>
+                                                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                                                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Phone Number</label>
+                                                    <p className="text-sm text-gray-800 mt-1">{selectedAdmin.phone_number || 'N/A'}</p>
+                                                </div>
+                                            </div>
                                         </div>
+
                                         <div>
-                                            <label className="text-sm font-semibold text-gray-700">Role</label>
-                                            <p className="text-gray-800 mt-1 capitalize">{selectedAdmin.role}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-semibold text-gray-700">Status</label>
-                                            <p className="text-gray-800 mt-1 capitalize">{selectedAdmin.status}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-semibold text-gray-700">Phone Number</label>
-                                            <p className="text-gray-800 mt-1">{selectedAdmin.phone_number || 'N/A'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-semibold text-gray-700">Created</label>
-                                            <p className="text-gray-800 mt-1">{new Date(selectedAdmin.createdAt).toLocaleDateString()}</p>
+                                            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Account Information</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+                                                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Role</label>
+                                                    <p className="text-sm text-gray-800 mt-1 capitalize">{selectedAdmin.role}</p>
+                                                </div>
+                                                <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
+                                                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status</label>
+                                                    <p className="text-sm text-gray-800 mt-1 capitalize">{selectedAdmin.status}</p>
+                                                </div>
+                                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 md:col-span-2">
+                                                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Admin ID</label>
+                                                    <p className="text-xs sm:text-sm text-gray-700 font-mono mt-1 break-all">{selectedAdmin._id}</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -745,15 +835,34 @@ const SuperAdminDashboard = () => {
                             )}
 
 
-                            {modalType === 'delete' && (
+                            {modalType === 'delete' && selectedAdmin && (
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-4 bg-red-50 border border-red-200 rounded-lg p-4">
                                         <AlertCircle size={32} className="text-red-600 flex-shrink-0" />
                                         <div>
                                             <p className="font-semibold text-gray-800">Confirm Delete</p>
                                             <p className="text-sm text-gray-600 mt-1">
-                                                Are you sure you want to delete <strong>{selectedAdmin?.name}</strong>? This action cannot be undone.
+                                                Are you sure you want to delete <strong>{selectedAdmin.fullname}</strong>? This action cannot be undone.
                                             </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
+                                            <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Email</label>
+                                            <p className="text-sm text-gray-800 mt-1 break-all">{selectedAdmin.email}</p>
+                                        </div>
+                                        <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+                                            <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Role</label>
+                                            <p className="text-sm text-gray-800 mt-1 capitalize">{selectedAdmin.role}</p>
+                                        </div>
+                                        <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
+                                            <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status</label>
+                                            <p className="text-sm text-gray-800 mt-1 capitalize">{selectedAdmin.status}</p>
+                                        </div>
+                                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                                            <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Phone</label>
+                                            <p className="text-sm text-gray-800 mt-1">{selectedAdmin.phone_number || 'N/A'}</p>
                                         </div>
                                     </div>
                                 </div>

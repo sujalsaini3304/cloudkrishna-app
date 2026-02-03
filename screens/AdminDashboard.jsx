@@ -177,12 +177,44 @@ const AdminDashboard = () => {
                 setStudents(Array.isArray(response.data) ? response.data : []);
             }
         } catch (error) {
-            showNotification('Failed to fetch students', 'error');
             console.error('Error fetching students:', error);
+            
+            // Handle 403 Forbidden - access denied, redirect to login
+            if (error.response?.status === 403) {
+                localStorage.removeItem("adminToken");
+                navigate('/admin/login');
+                
+                // Try to get error message from server response
+                let errorMessage = 'Access denied.';
+                if (error.response?.data) {
+                    if (typeof error.response.data === 'string') {
+                        errorMessage = error.response.data;
+                    } else if (error.response.data?.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.response.data?.error) {
+                        errorMessage = error.response.data.error;
+                    }
+                }
+                
+                showNotification(errorMessage, 'error');
+                return;
+            }
+            
+            // Handle other errors
+            let errorMessage = 'Failed to fetch students';
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response?.data?.error) {
+                errorMessage = error.response.data.error;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            showNotification(errorMessage, 'error');
         } finally {
             setLoading(false);
         }
-    }, [hostServer, showNotification]);
+    }, [hostServer, showNotification, navigate]);
 
     // Initial fetch
     useEffect(() => {
